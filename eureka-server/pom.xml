@@ -3,44 +3,37 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>com.intellimart</groupId>       <artifactId>intellimart-parent</artifactId> <version>0.0.1-SNAPSHOT</version>         <relativePath>../pom.xml</relativePath> </parent>
-
-	<groupId>com.intellimart</groupId>
+		<groupId>com.intellimart</groupId>
+		<artifactId>intellimart-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../pom.xml</relativePath>
+	</parent>
 	<artifactId>eureka-server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>eureka-server</name>
-	<description>Eureka Service Discovery Server for IntelliMart</description>
-	<url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
-	<properties>
-		<java.version>21</java.version> </properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter</artifactId>
-		</dependency>
+	<description>Eureka Server for IntelliMart Microservices</description>
 
+	<properties>
+	</properties>
+
+	<dependencies>
+         <dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
-            </dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -48,7 +41,8 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-                </plugin>
+                <version>${spring-boot.version}</version> <!-- ADDED THIS LINE -->
+			</plugin>
 		</plugins>
 	</build>
 

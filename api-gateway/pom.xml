@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.intellimart</groupId>       <!-- CORRECTED: Point to your parent's GroupId -->
+		<artifactId>intellimart-parent</artifactId> <!-- CORRECTED: Point to your parent's ArtifactId -->
+		<version>0.0.1-SNAPSHOT</version>         <!-- CORRECTED: Point to your parent's Version -->
+		<relativePath>../pom.xml</relativePath> <!-- CRUCIAL: Relative path to your parent POM -->
+	</parent>
+
+	<groupId>com.intellimart</groupId>
+	<artifactId>api-gateway</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>api-gateway</name>
+	<description>API Gateway for IntelliMart Microservices</description>
+	<!-- Remove empty/redundant tags. If you want them, populate them correctly. -->
+	<url/>
+	<licenses><license/></licenses>
+	<developers><developer/></developers>
+	<scm><connection/><developerConnection/><tag/><url/></scm>
+
+	<properties>
+		<!-- REMOVE THESE PROPERTIES. They are inherited from intellimart-parent -->
+		<!-- <java.version>21</java.version> -->
+		<!-- <spring-cloud.version>2025.0.0</spring-cloud.version> -->
+	</properties>
+
+	<dependencies>
+		<!-- CORRECTED: Use the standard spring-cloud-starter-gateway -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-gateway</artifactId>
+			<!-- No <version> tag here, version inherited from parent's dependencyManagement -->
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+			<!-- No <version> tag here, version inherited from parent's dependencyManagement -->
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+			<!-- No <version> tag here, version inherited from parent's dependencyManagement (Spring Boot) -->
+		</dependency>
+	</dependencies>
+
+	<!-- REMOVE THIS ENTIRE <dependencyManagement> BLOCK.
+	     It is handled by the intellimart-parent. -->
+	<!-- <dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement> -->
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<!-- No <version> tag here, version inherited from parent's dependencyManagement (Spring Boot) -->
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

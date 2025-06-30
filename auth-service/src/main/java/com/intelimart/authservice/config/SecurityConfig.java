@@ -1,31 +1,63 @@
 package com.intelimart.authservice.config;
 
+import com.intelimart.authservice.service.UserDetailsServiceImpl; // Import your UserDetailsService
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration; // Import this
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.Customizer; // Added for basic HTTP Basic Auth configuration
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-	
-	 @Bean
-	  public PasswordEncoder passwordEncoder() {
-	        return new BCryptPasswordEncoder(); // This bean will be used for password hashing
-	    }
-	 @Bean
-	    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-	        // For Day 4, we're temporarily disabling CSRF and authorizing all requests
-	        // to easily test the registration endpoint.
-	        // In a real application, you would configure specific authorization rules.
-	        http
-	            .csrf(csrf -> csrf.disable()) // Disable CSRF for Postman testing (re-enable for production or use tokens)
-	            .authorizeHttpRequests(authorize -> authorize
-	                .anyRequest().permitAll() // Allow all requests for now (temporarily for registration testing)
-	            );
-	        return http.build();
-	    }
+
+    @Autowired
+    private UserDetailsServiceImpl userDetailsService; // Inject your custom UserDetailsService
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // Expose AuthenticationManager as a Bean
+    // This is crucial for AuthService to use authenticationManager.authenticate()
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        // This is the correct way to expose AuthenticationManager in Spring Boot 3+
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    // Configure DaoAuthenticationProvider to use our UserDetailsService and PasswordEncoder
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService); // Set your custom UserDetailsService
+        provider.setPasswordEncoder(passwordEncoder());    // Set your PasswordEncoder
+        return provider;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable()) // Disable CSRF for simplicity in API testing for now
+            .authorizeHttpRequests(authorize -> authorize
+                // Allow access to register and login endpoints without authentication
+                .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                // All other requests require authentication (will be fully implemented later)
+                .anyRequest().authenticated()
+            )
+            // Optional: Enable HTTP Basic authentication for testing if needed
+            // Will be replaced by JWT filter later
+            .httpBasic(Customizer.withDefaults()); // This enables basic authentication pop-up
+
+        return http.build();
+    }
 }

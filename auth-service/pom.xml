@@ -54,6 +54,11 @@
 			<version>0.11.5</version>
 		</dependency>
 		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.5.0</version>
+		</dependency>
+		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-impl</artifactId>
 			<version>0.11.5</version>
@@ -65,7 +70,7 @@
 			<version>0.11.5</version>
 			<scope>runtime</scope>
 		</dependency>
-	<!--	 Instead of runtime, let Maven use it for compile and runtime 
+		<!--	 Instead of runtime, let Maven use it for compile and runtime 
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-impl</artifactId>

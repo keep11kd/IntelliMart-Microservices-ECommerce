@@ -52,6 +52,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 // Allow access to register and login endpoints without authentication
                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                // Allow access to Swagger UI and API Docs paths
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // The /validate endpoint now requires authentication
                 .requestMatchers("/api/auth/validate").authenticated()
                 // All other requests require authentication (will be fully implemented later)

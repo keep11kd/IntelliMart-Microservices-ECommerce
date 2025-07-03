@@ -21,7 +21,8 @@ public class SecurityConfig {
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService; // Inject your custom UserDetailsService
-
+    
+    
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -51,12 +52,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 // Allow access to register and login endpoints without authentication
                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                // The /validate endpoint now requires authentication
+                .requestMatchers("/api/auth/validate").authenticated()
                 // All other requests require authentication (will be fully implemented later)
                 .anyRequest().authenticated()
             )
-            // Optional: Enable HTTP Basic authentication for testing if needed
-            // Will be replaced by JWT filter later
-            .httpBasic(Customizer.withDefaults()); // This enables basic authentication pop-up
+            .httpBasic(Customizer.withDefaults()); // Keep this for now for basic debugging if needed
 
         return http.build();
     }

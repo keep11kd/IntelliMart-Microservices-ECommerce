@@ -50,12 +50,11 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable CSRF for API endpoints
             .authorizeHttpRequests(authorize -> authorize
-                // Allow unauthenticated access to /api/products GET requests (viewing products)
-                .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-                // Allow unauthenticated access to /api/categories GET requests
-                .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
-                // Require authentication for other requests (e.g., Postman access to login)
-                .requestMatchers("/h2-console/**").permitAll() // Allow H2 console access for dev
+            		.requestMatchers("/api/products").permitAll()
+            		.requestMatchers("/api/products/{id}").permitAll()
+            		.requestMatchers("/api/products/paginated").permitAll()
+            		.requestMatchers("/api/products/search").permitAll()
+            		.requestMatchers("/api/products/category/{categoryId}").permitAll()
                 .anyRequest().authenticated() // All other requests need authentication
             )
             .headers(headers -> headers.frameOptions().disable()) // Required for H2 console

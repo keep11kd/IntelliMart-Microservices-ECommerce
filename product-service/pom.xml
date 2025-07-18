@@ -8,7 +8,9 @@
         <groupId>com.intellimart</groupId>
         <artifactId>intellimart-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath> </parent>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>product-service</artifactId>
     <name>product-service</name>
     <description>Product Service for IntelliMart Microservices</description>
@@ -40,23 +42,22 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
+        <!-- Removed H2 database dependency as you are using MySQL -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-            </dependency>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -69,7 +70,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version> <!-- Added version for clarity and stability -->
                 <configuration>
+                    <parameters>true</parameters> <!-- IMPORTANT: This flag enables parameter name discovery -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -81,6 +84,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <!-- Inherit version from parent or define here if needed -->
                 <configuration>
                     <excludes>
                         <exclude>
@@ -92,5 +96,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

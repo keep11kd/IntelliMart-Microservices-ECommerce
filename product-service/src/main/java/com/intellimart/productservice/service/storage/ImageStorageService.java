@@ -1,21 +1,22 @@
 package com.intellimart.productservice.service.storage;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource; // !!! NEW IMPORT
-import org.springframework.core.io.UrlResource; // !!! NEW IMPORT
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import lombok.extern.slf4j.Slf4j; // !!! ADDED: For logging
 
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
-import java.net.MalformedURLException; // !!! NEW IMPORT
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
-// Custom exception for storage related issues (optional but good practice)
+// Custom exception for storage related issues
 class ImageStorageException extends RuntimeException {
     public ImageStorageException(String message) {
         super(message);
@@ -26,7 +27,7 @@ class ImageStorageException extends RuntimeException {
     }
 }
 
-// Custom exception for file not found (optional but good practice)
+// Custom exception for file not found
 class ImageFileNotFoundException extends RuntimeException {
     public ImageFileNotFoundException(String message) {
         super(message);
@@ -39,20 +40,21 @@ class ImageFileNotFoundException extends RuntimeException {
 
 
 @Service
+@Slf4j // !!! ADDED: Lombok annotation to enable Slf4j logger
 public class ImageStorageService {
 
     @Value("${product.images.upload-dir}")
     private String uploadDir;
-    private Path fileStorageLocation;
+    private Path fileStorageLocation; // The actual path object
 
     @PostConstruct
     public void init() {
         this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.fileStorageLocation);
-            System.out.println("Product image upload directory created: " + this.fileStorageLocation.toString());
+            log.info("Product image upload directory created: {}", this.fileStorageLocation.toString()); // !!! MODIFIED: Using logger
         } catch (IOException ex) {
-            // Use a custom exception for better context
+            log.error("Could not create the upload directory: {}", this.fileStorageLocation.toString(), ex); // !!! MODIFIED: Using logger
             throw new ImageStorageException("Could not create the upload directory: " + this.fileStorageLocation.toString(), ex);
         }
     }
@@ -89,11 +91,13 @@ public class ImageStorageService {
 
             Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            log.info("File stored successfully: {}", uniqueFileName); // !!! MODIFIED: Using logger
 
             // Return the relative URL/path that will be stored in the database
             // This URL corresponds to the path served by WebConfig
             return "/images/" + uniqueFileName;
         } catch (IOException ex) {
+            log.error("Could not store file {}. Error: {}", originalFileName, ex.getMessage(), ex); // !!! MODIFIED: Using logger
             throw new ImageStorageException("Could not store file " + originalFileName + ". Please try again!", ex);
         }
     }
@@ -116,11 +120,14 @@ public class ImageStorageService {
             Resource resource = new UrlResource(filePath.toUri());
 
             if (resource.exists() && resource.isReadable()) {
+                log.info("File loaded as resource: {}", cleanedFileName); // !!! MODIFIED: Using logger
                 return resource;
             } else {
+                log.warn("File not found or not readable: {}", cleanedFileName); // !!! MODIFIED: Using logger
                 throw new ImageFileNotFoundException("File not found or not readable " + cleanedFileName);
             }
         } catch (MalformedURLException ex) {
+            log.error("Error converting file path to URL for {}: {}", fileName, ex.getMessage(), ex); // !!! MODIFIED: Using logger
             throw new ImageStorageException("Error converting file path to URL for " + fileName, ex);
         }
     }
@@ -136,6 +143,7 @@ public class ImageStorageService {
      */
     public boolean deleteFile(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
+            log.warn("Attempted to delete a null or empty file name."); // !!! MODIFIED: Using logger
             return false; // Nothing to delete
         }
         // Remove the /images/ prefix if it's present in the fileName from the database
@@ -144,13 +152,14 @@ public class ImageStorageService {
         try {
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
-                System.out.println("Deleted file: " + filePath.toString());
+                log.info("Deleted file: {}", filePath.toString()); // !!! MODIFIED: Using logger
                 return true;
             } else {
-                System.out.println("File not found, skipping deletion: " + filePath.toString());
+                log.warn("File not found, skipping deletion: {}", filePath.toString()); // !!! MODIFIED: Using logger
                 return false;
             }
         } catch (IOException ex) {
+            log.error("Could not delete file: {}. Error: {}", cleanedFileName, ex.getMessage(), ex); // !!! MODIFIED: Using logger
             throw new ImageStorageException("Could not delete file: " + cleanedFileName, ex);
         }
     }

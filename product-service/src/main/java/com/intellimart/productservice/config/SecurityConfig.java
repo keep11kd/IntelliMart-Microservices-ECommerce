@@ -3,6 +3,7 @@ package com.intellimart.productservice.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer; // Import for Customizer.withDefaults()
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -48,23 +49,40 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Disable CSRF for API endpoints
+            .csrf(csrf -> csrf.disable()) // Disable CSRF for API endpoints (common for stateless REST APIs)
             .authorizeHttpRequests(authorize -> authorize
-            		.requestMatchers("/api/products").permitAll()
-            		.requestMatchers("/api/products/{id}").permitAll()
-            		.requestMatchers("/api/products/paginated").permitAll()
-            		.requestMatchers("/api/products/search").permitAll()
-            		.requestMatchers("/api/products/category/{categoryId}").permitAll()
-                .anyRequest().authenticated() // All other requests need authentication
+                // --- Explicitly permit access to Swagger UI and API Docs endpoints ---
+                // These paths must be accessible without authentication for Swagger UI to load
+                .requestMatchers(
+                    "/swagger-ui.html",           // Main Swagger UI page
+                    "/swagger-ui/**",             // Swagger UI static resources (JS, CSS, images)
+                    "/v3/api-docs/**",            // Default OpenAPI 3 documentation endpoint
+                    "/api-docs",                  // Custom API docs path from application.properties
+                    "/api-docs/**",               // Sub-paths under the custom API docs path
+                    "/webjars/**"                 // Resources served by webjars (e.g., for Swagger UI)
+                ).permitAll()
+
+                // --- Permit access to other public endpoints ---
+                // Public GET requests for product and category APIs (viewing products/categories)
+                .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+                // Public access to static image serving
+                .requestMatchers("/images/**").permitAll()
+                // Public access to H2 console (for development only)
+                .requestMatchers("/h2-console/**").permitAll()
+                // Permit access to Spring Boot Actuator endpoints (if enabled and desired to be public)
+                .requestMatchers("/actuator/**").permitAll()
+
+                // --- All other requests require authentication ---
+                // Any request not explicitly permitted above will require authentication
+                .anyRequest().authenticated()
             )
-            .headers(headers -> headers.frameOptions().disable()) // Required for H2 console
+            .headers(headers -> headers.frameOptions().disable()) // Required for H2 console to work in a frame
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // Use stateless sessions for REST APIs
             )
-            .httpBasic(httpBasic -> {}); // Enable HTTP Basic authentication for demonstration
+            .httpBasic(Customizer.withDefaults()); // Enable HTTP Basic authentication for demonstration
 
         return http.build();
     }
- 
-    
 }

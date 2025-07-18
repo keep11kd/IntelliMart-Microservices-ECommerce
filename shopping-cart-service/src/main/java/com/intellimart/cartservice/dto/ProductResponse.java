@@ -1,6 +1,7 @@
 package com.intellimart.cartservice.dto;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -9,6 +10,7 @@ import java.math.BigDecimal;
 @Data // Lombok: Generates getters, setters, toString, equals, and hashCode
 @NoArgsConstructor // Lombok: Generates a no-argument constructor
 @AllArgsConstructor // Lombok: Generates a constructor with all fields
+@Builder
 public class ProductResponse {
     private Long id;          // The ID of the product
     private String name;      // The name of the product

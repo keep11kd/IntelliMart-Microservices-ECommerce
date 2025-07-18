@@ -2,13 +2,13 @@ package com.intellimart.productservice.service;
 
 import com.intellimart.productservice.dto.ProductRequest;
 import com.intellimart.productservice.dto.ProductResponse;
-import com.intellimart.productservice.dto.CategoryResponse; // Assuming CategoryResponse is in this package
-import com.intellimart.productservice.entity.Category; // User's provided entity package
-import com.intellimart.productservice.entity.Product;   // User's provided entity package
-import com.intellimart.productservice.exception.ResourceNotFoundException; // User's provided exception
+import com.intellimart.productservice.dto.CategoryResponse;
+import com.intellimart.productservice.entity.Category;
+import com.intellimart.productservice.entity.Product;
+import com.intellimart.productservice.exception.ResourceNotFoundException;
 import com.intellimart.productservice.repository.CategoryRepository;
 import com.intellimart.productservice.repository.ProductRepository;
-import com.intellimart.productservice.service.storage.ImageStorageService; // !!! NEW IMPORT for Image Storage Service
+import com.intellimart.productservice.service.storage.ImageStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -16,22 +16,24 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile; // !!! NEW IMPORT for MultipartFile
+import org.springframework.transaction.annotation.Transactional; // Import for @Transactional
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.math.BigDecimal; // !!! NEW IMPORT: For price filtering
 
 @Service
-@RequiredArgsConstructor // Lombok: Generates constructor with final fields (ProductRepository, CategoryRepository, ImageStorageService)
+@RequiredArgsConstructor
 @Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-    private final ImageStorageService imageStorageService; // !!! NEW: Inject ImageStorageService
+    private final ImageStorageService imageStorageService;
 
-    // !!! MODIFIED: createProduct now accepts MultipartFile
+    @Transactional // Added @Transactional for create, update, delete operations
     public ProductResponse createProduct(ProductRequest productRequest, MultipartFile imageFile) {
         log.info("Creating product: {}", productRequest.getName());
 
@@ -39,11 +41,9 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + productRequest.getCategoryId()));
 
         String imageUrl = null;
-        // Handle image file upload if provided
         if (imageFile != null && !imageFile.isEmpty()) {
             imageUrl = imageStorageService.storeFile(imageFile);
         } else if (productRequest.getImageUrl() != null && !productRequest.getImageUrl().isEmpty()) {
-            // If no file, but imageUrl is provided in request (e.g., for external URLs), use it
             imageUrl = productRequest.getImageUrl();
         }
 
@@ -52,7 +52,7 @@ public class ProductService {
                 .description(productRequest.getDescription())
                 .price(productRequest.getPrice())
                 .stock(productRequest.getStock())
-                .imageUrl(imageUrl) // Set the potentially stored image URL
+                .imageUrl(imageUrl)
                 .category(category)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -79,6 +79,38 @@ public class ProductService {
         return products.map(this::mapToProductResponse);
     }
 
+    /**
+     * NEW METHOD: Retrieves products based on various filtering criteria, with pagination and sorting.
+     * This method uses the flexible findProductsByCriteria from the repository.
+     * @param nameQuery Optional: Part of product name to search.
+     * @param descriptionQuery Optional: Part of product description to search.
+     * @param categoryId Optional: ID of the category to filter by.
+     * @param minPrice Optional: Minimum price in the range.
+     * @param maxPrice Optional: Maximum price in the range.
+     * @param page Page number.
+     * @param size Number of items per page.
+     * @param sortBy Field to sort by.
+     * @param sortDir Sort direction (asc/desc).
+     * @return A paginated list of ProductResponse DTOs.
+     */
+    public Page<ProductResponse> getFilteredProducts(
+            String nameQuery, String descriptionQuery, Long categoryId,
+            BigDecimal minPrice, BigDecimal maxPrice,
+            int page, int size, String sortBy, String sortDir) {
+        log.info("Filtering products with nameQuery={}, descQuery={}, categoryId={}, minPrice={}, maxPrice={}, page={}, size={}, sortBy={}, sortDir={}",
+                nameQuery, descriptionQuery, categoryId, minPrice, maxPrice, page, size, sortBy, sortDir);
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Call the repository method that handles multiple optional criteria
+        Page<Product> products = productRepository.findProductsByCriteria(
+                nameQuery, descriptionQuery, categoryId, minPrice, maxPrice, pageable);
+
+        return products.map(this::mapToProductResponse);
+    }
+
+
     public ProductResponse getProductById(Long id) {
         log.info("Fetching product with ID: {}", id);
         Product product = productRepository.findById(id)
@@ -86,7 +118,7 @@ public class ProductService {
         return mapToProductResponse(product);
     }
 
-    // !!! MODIFIED: updateProduct now accepts MultipartFile
+    @Transactional
     public ProductResponse updateProduct(Long id, ProductRequest productRequest, MultipartFile imageFile) {
         log.info("Updating product with ID: {}", id);
         Product existingProduct = productRepository.findById(id)
@@ -105,14 +137,14 @@ public class ProductService {
         // Handle image file update
         if (imageFile != null && !imageFile.isEmpty()) {
             // Optional: Delete old image if it exists before storing new one to save space
-            // String oldImageUrl = existingProduct.getImageUrl();
-            // if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
-            //     try {
-            //         imageStorageService.deleteFile(oldImageUrl); // Pass the URL, service will clean it
-            //     } catch (Exception e) {
-            //         log.warn("Failed to delete old image {}: {}", oldImageUrl, e.getMessage());
-            //     }
-            // }
+            String oldImageUrl = existingProduct.getImageUrl();
+            if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
+                try {
+                    imageStorageService.deleteFile(oldImageUrl);
+                } catch (Exception e) {
+                    log.warn("Failed to delete old image {}: {}", oldImageUrl, e.getMessage());
+                }
+            }
             String newImageUrl = imageStorageService.storeFile(imageFile);
             existingProduct.setImageUrl(newImageUrl);
         } else if (productRequest.getImageUrl() != null) { // Allow explicit null to clear image, or new external URL
@@ -126,7 +158,7 @@ public class ProductService {
         return mapToProductResponse(updatedProduct);
     }
 
-    // !!! MODIFIED: deleteProduct - optionally delete image when product is removed
+    @Transactional
     public void deleteProduct(Long id) {
         log.info("Deleting product with ID: {}", id);
         Product productToDelete = productRepository.findById(id)
@@ -135,19 +167,21 @@ public class ProductService {
         // Optional: Delete associated image file from storage when product is deleted
         if (productToDelete.getImageUrl() != null && !productToDelete.getImageUrl().isEmpty()) {
             try {
-                imageStorageService.deleteFile(productToDelete.getImageUrl()); // Pass the URL, service handles cleaning
+                imageStorageService.deleteFile(productToDelete.getImageUrl());
                 log.info("Associated image deleted for product ID: {}", id);
             } catch (Exception e) {
                 log.warn("Failed to delete image for product ID {}: {}", id, e.getMessage());
-                // Consider if deletion should fail if image delete fails. For now, it just logs warning.
             }
         }
-        productRepository.delete(productToDelete); // Using delete(entity) is often better for cascade behavior
+        productRepository.delete(productToDelete);
         log.info("Product deleted with ID: {}", id);
     }
 
+    // Keeping these for backward compatibility or specific use cases,
+    // though getFilteredProducts can cover most search/category needs.
     public List<ProductResponse> searchProducts(String query) {
         log.info("Searching products with query: {}", query);
+        // Note: This calls the repository method that combines name and description search
         List<Product> products = productRepository.findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(query, query);
         return products.stream()
                 .map(this::mapToProductResponse)
@@ -156,6 +190,7 @@ public class ProductService {
 
     public List<ProductResponse> getProductsByCategoryId(Long categoryId) {
         log.info("Fetching products by category ID: {}", categoryId);
+        // Note: This calls the repository method that finds by category ID
         List<Product> products = productRepository.findByCategoryId(categoryId);
         return products.stream()
                 .map(this::mapToProductResponse)

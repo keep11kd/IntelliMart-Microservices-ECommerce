@@ -11,8 +11,10 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
     // Find orders by userId
-    List<Order> findByUserId(String userId);
+    List<Order> findByUserId(Long userId);
 
     // Find order by orderNumber (if you implement a unique order number generation)
     Optional<Order> findByOrderNumber(String orderNumber);
+    
+
 }

@@ -5,7 +5,9 @@ import com.intellimart.orderservice.dto.OrderResponse;
 import com.intellimart.orderservice.exception.InsufficientStockException; // Ensure this is imported if you're throwing it
 import com.intellimart.orderservice.exception.ResourceNotFoundException;
 // import com.intellimart.orderservice.exception.OrderProcessingException; // Only if declared in interface
+import com.intellimart.orderservice.model.OrderStatus;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderService {
@@ -16,4 +18,7 @@ public interface OrderService {
     List<OrderResponse> getOrdersByUserId(Long userId); // <--- CHANGED FROM String TO Long
     OrderResponse updateOrderStatus(Long id, String newStatus) throws ResourceNotFoundException;
     void deleteOrder(Long id) throws ResourceNotFoundException;
+    
+    // <--- NEW METHOD FOR ADMIN FILTERS
+    List<OrderResponse> searchOrders(OrderStatus status, LocalDateTime startDate, LocalDateTime endDate);
 }

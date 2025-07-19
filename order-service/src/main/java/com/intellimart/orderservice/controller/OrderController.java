@@ -3,8 +3,9 @@ package com.intellimart.orderservice.controller;
 import com.intellimart.orderservice.dto.ErrorResponse;
 import com.intellimart.orderservice.dto.OrderRequest;
 import com.intellimart.orderservice.dto.OrderResponse;
-import com.intellimart.orderservice.exception.InsufficientStockException; // Added for specific exception handling
+import com.intellimart.orderservice.exception.InsufficientStockException;
 import com.intellimart.orderservice.exception.ResourceNotFoundException;
+import com.intellimart.orderservice.model.OrderStatus;
 import com.intellimart.orderservice.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,9 +13,11 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest; // <--- NEW IMPORT
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,7 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime; // Required if ErrorResponse uses LocalDateTime
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -34,42 +37,96 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final HttpServletRequest request; // <--- INJECT HttpServletRequest
+
+    // --- Exception Handlers ---
+    // These methods will catch specific exceptions thrown by other methods in this controller
+    // and return a standardized ErrorResponse.
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND) // Sets HTTP 404 status
+    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        log.error("Resource not found: {}", ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .apiPath(request.getRequestURI()) // <--- Using injected request for accurate path
+                .errorCode(HttpStatus.NOT_FOUND)
+                .errorMessage(ex.getMessage())
+                .errorTime(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST) // Sets HTTP 400 status
+    public ResponseEntity<ErrorResponse> handleInsufficientStockException(InsufficientStockException ex) {
+        log.error("Insufficient stock: {}", ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .apiPath(request.getRequestURI()) // <--- Using injected request for accurate path
+                .errorCode(HttpStatus.BAD_REQUEST)
+                .errorMessage(ex.getMessage())
+                .errorTime(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST) // Sets HTTP 400 status
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.error("Invalid argument: {}", ex.getMessage());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .apiPath(request.getRequestURI()) // <--- Using injected request for accurate path
+                .errorCode(HttpStatus.BAD_REQUEST)
+                .errorMessage(ex.getMessage())
+                .errorTime(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR) // Sets HTTP 500 status
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
+        log.error("An unexpected error occurred: {}", ex.getMessage(), ex);
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .apiPath(request.getRequestURI()) // <--- Using injected request for accurate path
+                .errorCode(HttpStatus.INTERNAL_SERVER_ERROR)
+                .errorMessage("An unexpected internal server error occurred: " + ex.getMessage())
+                .errorTime(LocalDateTime.now())
+                .build();
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // Removed `getCurrentRequestPath()` helper method as HttpServletRequest is now injected
+
 
     @Operation(
             summary = "Place a new order",
             description = "Creates a new order with specified products and quantities. Requires CUSTOMER or ADMIN role.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody( // <--- ENHANCED SWAGGER
+                    description = "Order details including user ID and list of order items",
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = OrderRequest.class))
+            ),
             responses = {
                     @ApiResponse(responseCode = "201", description = "Order placed successfully",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
-                    @ApiResponse(responseCode = "400", description = "Invalid input, insufficient stock, or order processing error",
-                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid input (e.g., validation errors), insufficient stock, or invalid request",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))), // <--- MORE SPECIFIC DESCRIPTION
                     @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
                     @ApiResponse(responseCode = "403", description = "Forbidden - requires CUSTOMER or ADMIN role"),
-                    @ApiResponse(responseCode = "404", description = "Product not found",
+                    @ApiResponse(responseCode = "404", description = "Product not found referenced in order items",
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error - unexpected issue")
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error - unexpected issue during order processing or communication with other services",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))) // <--- ADDED CONTENT SCHEMA
             }
     )
     @PostMapping
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<OrderResponse> placeOrder(@RequestBody @Valid OrderRequest orderRequest) {
+    public ResponseEntity<OrderResponse> placeOrder(@RequestBody @Valid OrderRequest orderRequest)
+            throws InsufficientStockException, ResourceNotFoundException {
         log.info("Received request to place order for userId: {}", orderRequest.getUserId());
-        try {
-            OrderResponse newOrder = orderService.placeOrder(orderRequest);
-            log.info("Order placed successfully with orderNumber: {}", newOrder.getOrderNumber());
-            return new ResponseEntity<>(newOrder, HttpStatus.CREATED);
-        } catch (ResourceNotFoundException e) {
-            log.warn("Order placement failed: Product not found. {}", e.getMessage());
-            // It's good practice to return an ErrorResponse here if your API contract specifies it.
-            // For now, returning null with a status.
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        } catch (InsufficientStockException e) { // Catching specific stock exception
-            log.warn("Order placement failed due to insufficient stock: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        } catch (Exception e) {
-            log.error("Error placing order: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        OrderResponse newOrder = orderService.placeOrder(orderRequest);
+        log.info("Order placed successfully with orderNumber: {}", newOrder.getOrderNumber());
+        return new ResponseEntity<>(newOrder, HttpStatus.CREATED);
     }
 
     @Operation(
@@ -80,7 +137,7 @@ public class OrderController {
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
                     @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
                     @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN or INTERNAL role"),
-                    @ApiResponse(responseCode = "404", description = "Order not found",
+                    @ApiResponse(responseCode = "404", description = "Order not found with the given ID", // <--- MORE SPECIFIC DESCRIPTION
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
             }
     )
@@ -88,15 +145,10 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('ADMIN', 'INTERNAL')")
     public ResponseEntity<OrderResponse> getOrderById(
             @Parameter(description = "ID of the order to retrieve", required = true, example = "1")
-            @PathVariable Long id) {
+            @PathVariable Long id) throws ResourceNotFoundException {
         log.info("Received request to get order by ID: {}", id);
-        try {
-            OrderResponse order = orderService.getOrderById(id);
-            return ResponseEntity.ok(order);
-        } catch (ResourceNotFoundException e) {
-            log.warn("Order not found for ID: {}. {}", id, e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        OrderResponse order = orderService.getOrderById(id);
+        return ResponseEntity.ok(order);
     }
 
     @Operation(
@@ -107,7 +159,8 @@ public class OrderController {
                             content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class, type = "array"))),
                     @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
                     @ApiResponse(responseCode = "403", description = "Forbidden - requires CUSTOMER or ADMIN role"),
-                    @ApiResponse(responseCode = "500", description = "Internal Server Error - failed to retrieve user ID or orders")
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error - failed to retrieve user ID or orders",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))) // <--- ADDED CONTENT SCHEMA
             }
     )
     @GetMapping("/me")
@@ -116,14 +169,15 @@ public class OrderController {
         log.info("Received request to get current user's order history.");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
+        // <--- REFINED ERROR HANDLING FOR CONSISTENCY WITH @ExceptionHandler
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
             log.warn("Attempt to access /api/orders/me by unauthenticated/anonymous user. This should ideally be caught by @PreAuthorize.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            throw new IllegalArgumentException("Authentication required or principal not found for user history.");
         }
 
         Long userId = null;
         if (authentication.getPrincipal() instanceof Jwt jwt) {
-            // Option 1: Try to get 'userId' claim directly as Long/Integer, then parse String
+            // Priority 1: "userId" claim
             Object userIdClaim = jwt.getClaim("userId");
             if (userIdClaim instanceof Long) {
                 userId = (Long) userIdClaim;
@@ -134,10 +188,11 @@ public class OrderController {
                     userId = Long.parseLong((String) userIdClaim);
                 } catch (NumberFormatException e) {
                     log.warn("JWT 'userId' claim is a String but not a valid Long: {}", userIdClaim);
+                    // Let userId remain null to trigger the IllegalArgumentException below
                 }
             }
 
-            // Option 2: If 'userId' not found or not parseable, try 'id' claim
+            // Priority 2: "id" claim if "userId" not found/invalid
             if (userId == null) {
                 Object idClaim = jwt.getClaim("id");
                 if (idClaim instanceof Long) {
@@ -153,39 +208,99 @@ public class OrderController {
                 }
             }
 
-            // Option 3: If still null, try 'sub' (subject) claim as a last resort
-            // IMPORTANT: 'sub' often contains the username (String). Only parse to Long if you are
-            // absolutely sure your 'sub' claim *is* the numeric user ID.
+            // Priority 3: "sub" (subject) claim if others not found/invalid (assuming 'sub' is user ID)
             if (userId == null && jwt.getSubject() != null) {
                 try {
                     userId = Long.parseLong(jwt.getSubject());
                 } catch (NumberFormatException e) {
                     log.warn("JWT 'sub' claim is not a valid Long userId for subject: {}", jwt.getSubject());
-                    // If 'sub' is a username, you might need to query a user service to get the ID.
-                    // For example: userId = userService.getUserIdByUsername(jwt.getSubject());
                 }
             }
 
         } else {
-             // Handle other principal types if necessary (e.g., custom UserDetails)
              log.error("Unsupported or unexpected authentication principal type: {}. Cannot extract userId.",
                        authentication.getPrincipal() != null ? authentication.getPrincipal().getClass().getName() : "null");
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+             throw new RuntimeException("Unsupported authentication principal type for user ID extraction.");
         }
 
         if (userId == null) {
-            log.error("Could not determine user ID from authentication context for /me endpoint. Access denied.");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+            log.error("Could not determine user ID from authentication context for /me endpoint.");
+            // Throw an exception that will be caught by one of the handlers
+            throw new IllegalArgumentException("User ID could not be determined from authentication context. Ensure JWT contains 'userId', 'id', or numeric 'sub' claim.");
         }
 
-        try {
-            // FIX: Now correctly calls getOrdersByUserId with a Long argument
-            List<OrderResponse> orders = orderService.getOrdersByUserId(userId);
-            log.info("Retrieved {} orders for userId: {}", orders.size(), userId);
-            return ResponseEntity.ok(orders);
-        } catch (Exception e) {
-            log.error("Error retrieving order history for userId {}: {}", userId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        List<OrderResponse> orders = orderService.getOrdersByUserId(userId);
+        log.info("Retrieved {} orders for userId: {}", orders.size(), userId);
+        return ResponseEntity.ok(orders);
+    }
+
+    @Operation(
+            summary = "Get all orders with optional filters (Admin only)",
+            description = "Retrieves a list of all orders, optionally filtered by status and creation date range. Requires ADMIN role.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Successfully retrieved orders",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class, type = "array"))),
+                    @ApiResponse(responseCode = "400", description = "Invalid status or date format provided", // <--- MORE SPECIFIC DESCRIPTION
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error - unexpected issue",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))) // <--- ADDED CONTENT SCHEMA
+            }
+    )
+    @GetMapping("/admin/orders")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<OrderResponse>> getOrdersAdmin(
+            @Parameter(description = "Filter by order status (e.g., PENDING, SHIPPED, DELIVERED, CANCELLED)", example = "DELIVERED",
+                       schema = @Schema(type = "string", allowableValues = {"PENDING", "SHIPPED", "DELIVERED", "CANCELLED"})) // <--- ENHANCED SWAGGER
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by creation date (start of range, inclusive). Format: YYYY-MM-DDTHH:MM:SS", example = "2023-01-01T00:00:00")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @Parameter(description = "Filter by creation date (end of range, inclusive). Format: YYYY-MM-DDTHH:MM:SS", example = "2023-12-31T23:59:59")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+
+        log.info("Admin request to get all orders with filters - status: {}, startDate: {}, endDate: {}", status, startDate, endDate);
+
+        OrderStatus orderStatus = null;
+        if (status != null && !status.isEmpty()) {
+            orderStatus = OrderStatus.valueOf(status.toUpperCase()); // Throws IllegalArgumentException if invalid, caught by handler
         }
+
+        List<OrderResponse> orders = orderService.searchOrders(orderStatus, startDate, endDate);
+        log.info("Admin retrieved {} orders.", orders.size());
+        return ResponseEntity.ok(orders);
+    }
+
+    @Operation(
+            summary = "Update order status (Admin only)",
+            description = "Updates the status of a specific order by its ID. Requires ADMIN role. Valid statuses: PENDING, SHIPPED, DELIVERED, CANCELLED.",
+            parameters = {
+                    @Parameter(description = "ID of the order to update", required = true, example = "1"),
+                    @Parameter(description = "New status for the order (e.g., SHIPPED, DELIVERED, CANCELLED)", required = true, example = "SHIPPED",
+                               schema = @Schema(type = "string", allowableValues = {"PENDING", "SHIPPED", "DELIVERED", "CANCELLED"})) // <--- ENHANCED SWAGGER
+            },
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Order status updated successfully",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Invalid new status provided",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+                    @ApiResponse(responseCode = "404", description = "Order not found",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error - unexpected issue",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))) // <--- ADDED CONTENT SCHEMA
+            }
+    )
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable Long id,
+            @RequestParam String newStatus) throws ResourceNotFoundException, IllegalArgumentException {
+
+        log.info("Admin request to update status for order ID: {} to {}", id, newStatus);
+        OrderResponse updatedOrder = orderService.updateOrderStatus(id, newStatus);
+        log.info("Order ID: {} status successfully updated to {}", id, updatedOrder.getStatus());
+        return ResponseEntity.ok(updatedOrder);
     }
 }

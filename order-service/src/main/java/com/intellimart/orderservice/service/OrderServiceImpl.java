@@ -17,15 +17,17 @@ import com.intellimart.orderservice.model.OrderItem;
 import com.intellimart.orderservice.model.OrderStatus;
 import com.intellimart.orderservice.repository.OrderItemRepository;
 import com.intellimart.orderservice.repository.OrderRepository;
+import com.intellimart.orderservice.util.OrderSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime; // Make sure this is imported if used
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,7 +35,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
+@Transactional // Ensure transactional consistency across database operations
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -42,66 +44,70 @@ public class OrderServiceImpl implements OrderService {
     private final ProductClient productClient;
 
     /**
-     * Places a new order based on a direct OrderRequest (e.g., from an admin panel or direct API call).
-     * This method now includes inventory deduction.
+     * Places a new order based on a direct OrderRequest.
+     * Includes inventory deduction and detailed logging for distributed calls.
      */
     @Override
     public OrderResponse placeOrder(OrderRequest orderRequest) throws InsufficientStockException, ResourceNotFoundException {
-        log.info("Placing new order (direct request) for user ID: {}", orderRequest.getUserId());
+        log.info("Attempting to place new order for user ID: {}", orderRequest.getUserId());
 
-        // Convert userId from String to Long for internal use
-        Long userId = Long.parseLong(orderRequest.getUserId());
+        Long userId = Long.parseLong(orderRequest.getUserId()); // Ensure consistency with Long userId
 
-        // 1. Validate and Decrement Stock for each item
         List<OrderItem> orderItems = new java.util.ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (OrderItemRequest itemRequest : orderRequest.getOrderItems()) {
             ProductResponse product;
+            log.debug("Processing order item for product ID: {} with quantity: {}", itemRequest.getProductId(), itemRequest.getQuantity());
 
             try {
-                // Call product-service to get product details and decrement stock
+                // Synchronous call to product-service to get product details and prepare for stock decrement
+                log.info("Calling product-service to get details for product ID: {}", itemRequest.getProductId());
                 ResponseEntity<ProductResponse> productResponse = productClient.getProductById(itemRequest.getProductId());
 
                 if (productResponse.getStatusCode() != HttpStatus.OK || productResponse.getBody() == null) {
-                    log.error("Product not found or unavailable: {}", itemRequest.getProductId());
+                    log.error("Product not found or unavailable from product-service for ID: {}. Status: {}", itemRequest.getProductId(), productResponse.getStatusCode());
                     throw new ResourceNotFoundException("Product not found or unavailable: " + itemRequest.getProductId());
                 }
                 product = productResponse.getBody();
+                log.info("Received product details for ID: {}. Name: {}, Stock: {}", product.getId(), product.getName(), product.getStock());
 
-                // Check if product price matches priceAtPurchase (optional, but good for consistency)
+                // Price consistency check (optional but good)
                 if (product.getPrice().compareTo(itemRequest.getPriceAtPurchase()) != 0) {
-                    log.warn("Price mismatch for product {}. Cart price: {}, Actual price: {}",
+                    log.warn("Price mismatch for product {}. Order item price: {}, Actual product price: {}. Using order item price for this order.",
                             itemRequest.getProductId(), itemRequest.getPriceAtPurchase(), product.getPrice());
                 }
 
-                // Attempt to decrement stock
+                // Synchronous call to product-service to decrement stock
                 StockDecrementRequest decrementRequest = new StockDecrementRequest(itemRequest.getProductId(), itemRequest.getQuantity());
+                log.info("Attempting to decrement stock for product ID: {} by quantity: {}", itemRequest.getProductId(), itemRequest.getQuantity());
                 ResponseEntity<Void> decrementResponse = productClient.decrementStock(decrementRequest);
 
                 if (decrementResponse.getStatusCode() != HttpStatus.OK) {
-                    // If product-service returns 400 BAD_REQUEST for insufficient stock
                     if (decrementResponse.getStatusCode() == HttpStatus.BAD_REQUEST) {
                         String errorMessage = "Insufficient stock for product ID: " + itemRequest.getProductId() +
-                                              ". Requested: " + itemRequest.getQuantity() + ", Available: " + product.getStock();
+                                              ". Requested: " + itemRequest.getQuantity() + ". Available stock might be less.";
                         log.error(errorMessage);
                         throw new InsufficientStockException(errorMessage);
                     } else {
-                        // Other errors from product-service (e.g., 500, 503 from fallback)
-                        String errorMessage = "Failed to decrement stock for product ID: " + itemRequest.getProductId() +
-                                              ". Product service returned status: " + decrementResponse.getStatusCode();
+                        // General error from product-service during stock decrement
+                        String errorMessage = String.format("Failed to decrement stock for product ID: %s. Product service returned status: %s. Response body: %s",
+                                itemRequest.getProductId(), decrementResponse.getStatusCode(), decrementResponse.getBody());
                         log.error(errorMessage);
-                        throw new RuntimeException(errorMessage); // This will rollback the transaction
+                        throw new RuntimeException(errorMessage); // This will trigger transaction rollback
                     }
                 }
+                log.info("Stock successfully decremented for product ID: {} by {}", itemRequest.getProductId(), itemRequest.getQuantity());
+
             } catch (ResourceNotFoundException | InsufficientStockException e) {
-                throw e; // Re-throw specific, known exceptions
+                // Re-throw specific, known exceptions for @ExceptionHandler to catch
+                throw e;
             } catch (Exception e) {
-                log.error("Error communicating with product service for product ID {}: {}", itemRequest.getProductId(), e.getMessage(), e);
-                throw new RuntimeException("Failed to process order due to product service issue for product " + itemRequest.getProductId(), e); // Catch generic errors
+                // Catch any other unexpected errors from Feign client (network, service down, etc.)
+                log.error("Critical error during product service interaction for product ID {}: {}", itemRequest.getProductId(), e.getMessage(), e);
+                throw new RuntimeException("Failed to process order due to product service issue for product " + itemRequest.getProductId() + ": " + e.getMessage(), e);
             }
 
-            // Stock successfully decremented, now build OrderItem
             BigDecimal itemTotalPrice = itemRequest.getPriceAtPurchase().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
             totalAmount = totalAmount.add(itemTotalPrice);
 
@@ -109,15 +115,14 @@ public class OrderServiceImpl implements OrderService {
                     .productId(itemRequest.getProductId())
                     .quantity(itemRequest.getQuantity())
                     .priceAtPurchase(itemRequest.getPriceAtPurchase())
-                    .productName(product.getName()) // Enrich with actual product name
-                    .imageUrl(product.getImageUrl()) // Enrich with actual image URL
+                    .productName(product.getName())
+                    .imageUrl(product.getImageUrl())
                     .build();
             orderItems.add(orderItem);
         }
 
-        // 2. Create and Save Order
         Order order = Order.builder()
-                .userId(userId) // Use the converted Long userId
+                .userId(userId)
                 .status(OrderStatus.PENDING)
                 .totalAmount(totalAmount)
                 .paymentInfo(orderRequest.getPaymentInfo() != null ? orderRequest.getPaymentInfo() : "N/A - Direct Order")
@@ -126,17 +131,17 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         Order savedOrder = orderRepository.save(order);
-        orderItems.forEach(item -> item.setOrder(savedOrder)); // Ensure bidirectional link is established
+        orderItems.forEach(item -> item.setOrder(savedOrder)); // Establish bidirectional link
 
-        log.info("Order placed successfully with ID: {}", savedOrder.getId());
+        log.info("Order placed successfully with ID: {} and orderNumber: {}", savedOrder.getId(), savedOrder.getOrderNumber());
         return mapToOrderResponse(savedOrder);
     }
 
     /**
      * Creates an order by fetching cart contents from the shopping-cart-service.
-     * This method now includes inventory deduction.
+     * Includes inventory deduction and detailed logging.
      *
-     * @param userIdString The ID of the user whose cart should be converted to an order (String type for API input).
+     * @param userIdString The ID of the user whose cart should be converted to an order.
      * @return OrderResponse representing the newly created order.
      * @throws ResourceNotFoundException if the cart is empty or user not found.
      * @throws InsufficientStockException if stock is insufficient for any item.
@@ -145,59 +150,70 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse createOrderFromCart(String userIdString) throws ResourceNotFoundException, InsufficientStockException {
         log.info("Attempting to create order from cart for user ID: {}", userIdString);
 
-        // Convert userId from String to Long for internal use and consistency
         Long userId = Long.parseLong(userIdString);
 
-        // 1. Fetch cart contents from shopping-cart-service
-        CartResponse cart = shoppingCartClient.getCartByUserId(userIdString);
+        // Synchronous call to shopping-cart-service
+        CartResponse cart;
+        try {
+            log.info("Calling shopping-cart-service to get cart for user ID: {}", userIdString);
+            cart = shoppingCartClient.getCartByUserId(userIdString);
+            log.info("Received cart for user ID: {}. Items count: {}", userIdString, cart != null ? cart.getItems().size() : 0);
+        } catch (Exception e) {
+            log.error("Failed to retrieve cart from shopping-cart-service for user ID {}: {}", userIdString, e.getMessage(), e);
+            throw new RuntimeException("Failed to retrieve shopping cart for user " + userIdString + ": " + e.getMessage(), e);
+        }
 
         if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) {
-            log.warn("Cart is empty (or could not be retrieved) for user ID: {}", userIdString);
+            log.warn("Cannot create order: Cart is empty for user ID: {}", userIdString);
             throw new ResourceNotFoundException("Cannot create order: Cart is empty for user ID " + userIdString);
         }
 
-        // 2. Validate and Decrement Stock for each item in the cart
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> orderItems = new java.util.ArrayList<>();
 
         for (CartItemResponse cartItem : cart.getItems()) {
             ProductResponse product;
+            log.debug("Processing cart item for product ID: {} with quantity: {}", cartItem.getProductId(), cartItem.getQuantity());
 
             try {
-                // Call product-service to get product details (for enrichment) and decrement stock
+                // Synchronous call to product-service to get product details and decrement stock
+                log.info("Calling product-service to get details for product ID: {}", cartItem.getProductId());
                 ResponseEntity<ProductResponse> productResponse = productClient.getProductById(cartItem.getProductId());
 
                 if (productResponse.getStatusCode() != HttpStatus.OK || productResponse.getBody() == null) {
-                    log.error("Product not found or unavailable from cart: {}", cartItem.getProductId());
+                    log.error("Product not found or unavailable from product-service for ID: {}. Status: {}", cartItem.getProductId(), productResponse.getStatusCode());
                     throw new ResourceNotFoundException("Product not found or unavailable from cart: " + cartItem.getProductId());
                 }
                 product = productResponse.getBody();
+                log.info("Received product details for ID: {}. Name: {}, Stock: {}", product.getId(), product.getName(), product.getStock());
 
-                // Attempt to decrement stock
+                // Synchronous call to product-service to decrement stock
                 StockDecrementRequest decrementRequest = new StockDecrementRequest(cartItem.getProductId(), cartItem.getQuantity());
+                log.info("Attempting to decrement stock for product ID: {} by quantity: {}", cartItem.getProductId(), cartItem.getQuantity());
                 ResponseEntity<Void> decrementResponse = productClient.decrementStock(decrementRequest);
 
                 if (decrementResponse.getStatusCode() != HttpStatus.OK) {
                     if (decrementResponse.getStatusCode() == HttpStatus.BAD_REQUEST) {
                         String errorMessage = "Insufficient stock for product ID: " + cartItem.getProductId() +
-                                              ". Requested: " + cartItem.getQuantity() + ", Available: " + product.getStock();
+                                              ". Requested: " + cartItem.getQuantity() + ". Available stock might be less.";
                         log.error(errorMessage);
                         throw new InsufficientStockException(errorMessage);
                     } else {
-                        String errorMessage = "Failed to decrement stock for product ID: " + cartItem.getProductId() +
-                                              ". Product service returned status: " + decrementResponse.getStatusCode();
+                        String errorMessage = String.format("Failed to decrement stock for product ID: %s. Product service returned status: %s. Response body: %s",
+                                cartItem.getProductId(), decrementResponse.getStatusCode(), decrementResponse.getBody());
                         log.error(errorMessage);
-                        throw new RuntimeException(errorMessage);
+                        throw new RuntimeException(errorMessage); // This will rollback the transaction
                     }
                 }
+                log.info("Stock successfully decremented for product ID: {} by {}", cartItem.getProductId(), cartItem.getQuantity());
+
             } catch (ResourceNotFoundException | InsufficientStockException e) {
                 throw e;
             } catch (Exception e) {
-                log.error("Error communicating with product service for cart item {}: {}", cartItem.getProductId(), e.getMessage(), e);
-                throw new RuntimeException("Failed to process order from cart due to product service issue for product " + cartItem.getProductId(), e);
+                log.error("Critical error during product service interaction for cart item {}: {}", cartItem.getProductId(), e.getMessage(), e);
+                throw new RuntimeException("Failed to process order from cart due to product service issue for product " + cartItem.getProductId() + ": " + e.getMessage(), e);
             }
 
-            // Stock successfully decremented, now build OrderItem
             BigDecimal itemTotalPrice = cartItem.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
             totalAmount = totalAmount.add(itemTotalPrice);
 
@@ -205,19 +221,18 @@ public class OrderServiceImpl implements OrderService {
                     .productId(cartItem.getProductId())
                     .quantity(cartItem.getQuantity())
                     .priceAtPurchase(cartItem.getPrice())
-                    .productName(product.getName()) // Enrich with actual product name
-                    .imageUrl(product.getImageUrl()) // Enrich with actual image URL
+                    .productName(product.getName())
+                    .imageUrl(product.getImageUrl())
                     .build();
             orderItems.add(orderItem);
         }
 
-        // 3. Create and Save Order
         Order order = Order.builder()
-                .userId(userId) // Use the converted Long userId
+                .userId(userId)
                 .status(OrderStatus.PENDING)
                 .totalAmount(totalAmount)
                 .paymentInfo("Online Payment - Cart")
-                .shippingAddress("Default Shipping Address for User " + userIdString) // Keep string for address if preferred
+                .shippingAddress("Default Shipping Address for User " + userIdString)
                 .orderItems(orderItems)
                 .build();
 
@@ -226,23 +241,30 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("Order created from cart successfully with ID: {} for user ID: {}", savedOrder.getId(), userIdString);
 
-        // 4. Clear the user's cart after order creation
+        // Asynchronous/Fire-and-forget call to clear the user's cart after order creation
+        // This operation is not critical for order creation transaction and can fail independently.
         try {
+            log.info("Attempting to clear cart for user ID: {}", userIdString);
             shoppingCartClient.clearCartByUserId(userIdString);
             log.info("Cart cleared successfully for user ID: {}", userIdString);
         } catch (Exception e) {
-            log.error("Failed to clear cart for user ID: {}. Error: {}", userIdString, e.getMessage());
+            log.warn("Failed to clear cart for user ID: {}. This might require manual cleanup or a dedicated retry mechanism. Error: {}", userIdString, e.getMessage());
             // This error doesn't roll back the order, but should be monitored.
         }
 
         return mapToOrderResponse(savedOrder);
     }
 
+
     @Override
     public OrderResponse getOrderById(Long id) throws ResourceNotFoundException {
         log.info("Fetching order with ID: {}", id);
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + id));
+                .orElseThrow(() -> {
+                    log.warn("Order not found with ID: {}", id);
+                    return new ResourceNotFoundException("Order not found with ID: " + id);
+                });
+        log.debug("Found order: {}", order.getOrderNumber());
         return mapToOrderResponse(order);
     }
 
@@ -250,33 +272,63 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderResponse> getAllOrders() {
         log.info("Fetching all orders.");
         List<Order> orders = orderRepository.findAll();
+        log.info("Found {} total orders.", orders.size());
         return orders.stream()
                 .map(this::mapToOrderResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<OrderResponse> getOrdersByUserId(Long userId) { // <--- FIXED: Changed from String to Long
+    public List<OrderResponse> getOrdersByUserId(Long userId) {
         log.info("Fetching orders for user ID: {}", userId);
         List<Order> orders = orderRepository.findByUserId(userId);
+        log.info("Found {} orders for user ID: {}", orders.size(), userId);
         return orders.stream()
                 .map(this::mapToOrderResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public OrderResponse updateOrderStatus(Long id, String newStatus) throws ResourceNotFoundException {
+    public List<OrderResponse> searchOrders(OrderStatus status, LocalDateTime startDate, LocalDateTime endDate) {
+        log.info("Searching orders with filters - status: {}, startDate: {}, endDate: {}", status, startDate, endDate);
+
+        Specification<Order> spec = OrderSpecifications.combineAnd(
+                OrderSpecifications.withStatus(status),
+                OrderSpecifications.withCreatedAtBetween(startDate, endDate)
+        );
+
+        List<Order> orders = orderRepository.findAll(spec);
+        log.info("Found {} orders matching the criteria.", orders.size());
+        return orders.stream()
+                .map(this::mapToOrderResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public OrderResponse updateOrderStatus(Long id, String newStatus) throws ResourceNotFoundException, IllegalArgumentException {
         log.info("Updating status for order ID: {} to {}", id, newStatus);
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + id));
+                .orElseThrow(() -> {
+                    log.warn("Order not found with ID: {} for status update.", id);
+                    return new ResourceNotFoundException("Order not found with ID: " + id);
+                });
 
+        OrderStatus statusEnum;
         try {
-            order.setStatus(OrderStatus.valueOf(newStatus.toUpperCase()));
+            statusEnum = OrderStatus.valueOf(newStatus.toUpperCase());
         } catch (IllegalArgumentException e) {
+            log.error("Invalid order status provided for order ID {}: {}. Valid statuses are: {}", id, newStatus,
+                    java.util.Arrays.stream(OrderStatus.values()).map(Enum::name).collect(Collectors.joining(", ")));
             throw new IllegalArgumentException("Invalid order status: " + newStatus + ". Valid statuses are: " +
                     java.util.Arrays.stream(OrderStatus.values()).map(Enum::name).collect(Collectors.joining(", ")));
         }
 
+        if (order.getStatus().equals(statusEnum)) {
+            log.info("Order ID: {} status is already {}. No update needed.", id, newStatus);
+            return mapToOrderResponse(order); // Return current state if no change
+        }
+
+        order.setStatus(statusEnum);
         Order updatedOrder = orderRepository.save(order);
         log.info("Order ID: {} status updated to: {}", updatedOrder.getId(), updatedOrder.getStatus());
         return mapToOrderResponse(updatedOrder);
@@ -286,6 +338,7 @@ public class OrderServiceImpl implements OrderService {
     public void deleteOrder(Long id) throws ResourceNotFoundException {
         log.info("Attempting to delete order with ID: {}", id);
         if (!orderRepository.existsById(id)) {
+            log.warn("Order not found with ID: {} for deletion.", id);
             throw new ResourceNotFoundException("Order not found with ID: " + id);
         }
         orderRepository.deleteById(id);

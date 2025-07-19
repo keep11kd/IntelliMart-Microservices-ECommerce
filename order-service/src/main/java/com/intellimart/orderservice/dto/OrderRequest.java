@@ -1,7 +1,7 @@
 package com.intellimart.orderservice.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema; // <--- NEW IMPORT
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -15,15 +15,20 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Schema(description = "Request DTO for creating or placing an order")
 public class OrderRequest {
-    @NotBlank(message = "User ID cannot be empty")
+    @NotNull(message = "User ID cannot be null")
+    @Schema(description = "The ID of the user placing the order (as a String)", example = "101")
     private String userId;
 
     @NotEmpty(message = "Order must contain at least one item")
-    @Valid // This ensures validation is applied to each item in the list
+    @Valid // Ensures validation is applied to each item in the list
+    @Schema(description = "List of items included in the order")
     private List<OrderItemRequest> orderItems;
 
-    // Optional fields for direct order creation, consistent with Order entity
+    @Schema(description = "Payment information for the order (e.g., 'Credit Card', 'PayPal')", example = "Credit Card (Visa ending 1234)")
     private String paymentInfo;
+
+    @Schema(description = "Shipping address for the order", example = "123 Main St, Anytown, USA")
     private String shippingAddress;
 }

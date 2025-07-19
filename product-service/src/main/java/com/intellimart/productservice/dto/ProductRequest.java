@@ -5,10 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 @Data
@@ -16,26 +15,16 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class ProductRequest {
-    @NotBlank(message = "Product name is required")
-    @Size(max = 255, message = "Product name cannot exceed 255 characters")
+    @NotBlank(message = "Product name cannot be empty")
     private String name;
-
-    @Size(max = 1000, message = "Description cannot exceed 1000 characters")
     private String description;
-
-    @NotNull(message = "Price is required")
+    @NotNull(message = "Price cannot be null")
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
-    private BigDecimal price; // !!! CONFIRMED/ENSURED: BigDecimal
-
-    @NotNull(message = "Stock is required")
-    @Positive(message = "Stock must be positive or zero")
+    private BigDecimal price;
+    @NotNull(message = "Stock cannot be null")
+    @Min(value = 0, message = "Stock must be non-negative")
     private Integer stock;
-
-    @Size(max = 2000, message = "Image URL cannot exceed 2000 characters")
     private String imageUrl;
-
-    @NotNull(message = "Category ID is required")
-    private Long categoryId;
-    
-    
+    @NotNull(message = "Category ID cannot be null") // New
+    private Long categoryId; // New
 }

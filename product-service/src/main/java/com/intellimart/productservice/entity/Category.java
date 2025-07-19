@@ -6,12 +6,13 @@ import lombok.Data;             // Lombok: Generates getters, setters, toString,
 import lombok.NoArgsConstructor;  // Lombok: Generates no-args constructor
 import java.time.LocalDateTime;   // For auditing timestamps
 import lombok.Builder;
+
 @Entity // Marks this class as a JPA entity
 @Table(name = "categories") // Specifies the table name in the database
 @Data // Lombok: Generates boilerplate code (getters, setters, etc.)
 @NoArgsConstructor // Lombok: Generates a no-argument constructor
 @AllArgsConstructor // Lombok: Generates an all-argument constructor
-@Builder // !!! NEW: Add this annotation
+@Builder // NEW: Add this annotation - This is correctly added, allowing Category.builder()
 public class Category {
     @Id // Marks this field as the primary key
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto-increments primary key for MySQL/PostgreSQL/H2

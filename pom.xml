@@ -44,6 +44,7 @@
 		<module>auth-service</module>
 		<module>product-service</module>
 		<module>shopping-cart-service</module>
+		<module>order-service</module>
 	</modules>
 
 	<build>

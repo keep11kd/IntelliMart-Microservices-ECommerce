@@ -14,11 +14,11 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder // !!! NEW: Add this annotation
+@Builder // !!! NEW: Add this annotation - This is good, ensures you can use Product.builder()
 public class Product {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // Correct for auto-incrementing Long ID
+    private Long id; // ID is now Long
 
     @Column(nullable = false)
     private String name;
@@ -30,12 +30,12 @@ public class Product {
 
     @Column(nullable = false)
     private Integer stock;
-
-    private String imageUrl; // Field for image URL (added in Day 10, but good to have now)
+    @Column(length = 1024) // URL for product image
+    private String imageUrl; // Field for image URL
 
     // --- Relationship to Category ---
-    @ManyToOne(fetch = FetchType.LAZY) // Many products can belong to one category. LAZY loading for performance.
-    @JoinColumn(name = "category_id", nullable = false) // Foreign key column in 'products' table
+    @ManyToOne(fetch = FetchType.LAZY) // Correct for Many products to one Category
+    @JoinColumn(name = "category_id", nullable = false) // Foreign key column
     private Category category; // Reference to the Category entity
 
     @Column(name = "created_at", updatable = false)

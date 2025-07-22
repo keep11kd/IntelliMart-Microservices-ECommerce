@@ -8,5 +8,8 @@ public enum OrderStatus {
     DELIVERED,     // Order has been delivered
     CANCELLED,     // Order was cancelled
     REFUNDED,      // Order was refunded
-    FAILED         // Order processing failed
+    FAILED,         // Order processing failed
+    PENDING_PAYMENT, // <--- ADDED
+    AUTHORIZED,      // <--- ADDED
+    PAID,            // <--- ADDED
 }

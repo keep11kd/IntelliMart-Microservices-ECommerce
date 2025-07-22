@@ -14,4 +14,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     
     // Find order by orderNumber (if you implement a unique order number generation)
     Optional<Order> findByOrderNumber(String orderNumber);
+    
+    Optional<Order> findByRazorpayOrderId(String razorpayOrderId); // <--- NEW METHOD
 }

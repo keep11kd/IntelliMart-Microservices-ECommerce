@@ -1,7 +1,7 @@
 package com.intellimart.orderservice.dto;
 
 import com.intellimart.orderservice.model.OrderStatus;
-import io.swagger.v3.oas.annotations.media.Schema; // <--- NEW IMPORT
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,7 +23,7 @@ public class OrderResponse {
     private Long userId;
     @Schema(description = "Unique human-readable order number (UUID)", example = "a1b2c3d4-e5f6-7890-1234-567890abcdef")
     private String orderNumber;
-    @Schema(description = "Current status of the order", example = "PENDING", allowableValues = {"PENDING", "SHIPPED", "DELIVERED", "CANCELLED"})
+    @Schema(description = "Current status of the order", example = "PENDING", allowableValues = {"PENDING", "PENDING_PAYMENT", "AUTHORIZED", "PAID", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED", "REFUNDED"})
     private OrderStatus status;
     @Schema(description = "Total monetary amount of the order", example = "199.99")
     private BigDecimal totalAmount;
@@ -33,6 +33,13 @@ public class OrderResponse {
     private String shippingAddress;
     @Schema(description = "List of individual items in the order")
     private List<OrderItemResponse> orderItems;
+
+    @Schema(description = "Razorpay's Order ID associated with this order, if payment initiated", example = "order_xxxxxxxxxxxxxx")
+    private String razorpayOrderId; // <--- ADDED
+
+    @Schema(description = "Razorpay's Payment ID associated with this order, if payment captured", example = "pay_xxxxxxxxxxxxxx")
+    private String razorpayPaymentId; // <--- ADDED
+
     @Schema(description = "Timestamp when the order was created", example = "2023-10-26T10:00:00")
     private LocalDateTime createdAt;
     @Schema(description = "Timestamp when the order was last updated", example = "2023-10-26T10:30:00")

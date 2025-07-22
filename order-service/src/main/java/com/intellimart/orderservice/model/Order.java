@@ -50,6 +50,12 @@ public class Order {
 
     @Column(name = "updated_at") // Audit field for last update timestamp
     private LocalDateTime updatedAt;
+    
+    @Column(name = "razorpay_order_id") // <--- NEW FIELD: Stores Razorpay's Order ID
+    private String razorpayOrderId;
+
+    @Column(name = "razorpay_payment_id") // <--- NEW FIELD: Stores Razorpay's Payment ID after capture
+    private String razorpayPaymentId;
 
     /**
      * Lifecycle callback method to set default values before persisting a new entity.

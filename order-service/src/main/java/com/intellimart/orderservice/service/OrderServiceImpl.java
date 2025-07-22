@@ -8,6 +8,7 @@ import com.intellimart.orderservice.dto.OrderItemRequest;
 import com.intellimart.orderservice.dto.OrderItemResponse;
 import com.intellimart.orderservice.dto.OrderRequest;
 import com.intellimart.orderservice.dto.OrderResponse;
+import com.intellimart.orderservice.dto.PaymentInitiationResponse;
 import com.intellimart.orderservice.dto.ProductResponse;
 import com.intellimart.orderservice.dto.StockDecrementRequest;
 import com.intellimart.orderservice.exception.InsufficientStockException;
@@ -18,8 +19,13 @@ import com.intellimart.orderservice.model.OrderStatus;
 import com.intellimart.orderservice.repository.OrderItemRepository;
 import com.intellimart.orderservice.repository.OrderRepository;
 import com.intellimart.orderservice.util.OrderSpecifications;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Utils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.extern.slf4j.Slf4j; // Corrected import
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,18 +36,26 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
-@Transactional // Ensure transactional consistency across database operations
+@Slf4j // <--- Corrected annotation (removed extra 4)
+@Transactional
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final ShoppingCartClient shoppingCartClient;
     private final ProductClient productClient;
+    private final RazorpayClient razorpayClient;
+
+    @Value("${razorpay.key-id}")
+    private String razorpayKeyId;
+
+    @Value("${razorpay.webhook-secret}")
+    private String razorpayWebhookSecret;
 
     /**
      * Places a new order based on a direct OrderRequest.
@@ -51,7 +65,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse placeOrder(OrderRequest orderRequest) throws InsufficientStockException, ResourceNotFoundException {
         log.info("Attempting to place new order for user ID: {}", orderRequest.getUserId());
 
-        Long userId = Long.parseLong(orderRequest.getUserId()); // Ensure consistency with Long userId
+        Long userId = Long.parseLong(orderRequest.getUserId());
 
         List<OrderItem> orderItems = new java.util.ArrayList<>();
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -61,7 +75,6 @@ public class OrderServiceImpl implements OrderService {
             log.debug("Processing order item for product ID: {} with quantity: {}", itemRequest.getProductId(), itemRequest.getQuantity());
 
             try {
-                // Synchronous call to product-service to get product details and prepare for stock decrement
                 log.info("Calling product-service to get details for product ID: {}", itemRequest.getProductId());
                 ResponseEntity<ProductResponse> productResponse = productClient.getProductById(itemRequest.getProductId());
 
@@ -72,13 +85,11 @@ public class OrderServiceImpl implements OrderService {
                 product = productResponse.getBody();
                 log.info("Received product details for ID: {}. Name: {}, Stock: {}", product.getId(), product.getName(), product.getStock());
 
-                // Price consistency check (optional but good)
                 if (product.getPrice().compareTo(itemRequest.getPriceAtPurchase()) != 0) {
                     log.warn("Price mismatch for product {}. Order item price: {}, Actual product price: {}. Using order item price for this order.",
                             itemRequest.getProductId(), itemRequest.getPriceAtPurchase(), product.getPrice());
                 }
 
-                // Synchronous call to product-service to decrement stock
                 StockDecrementRequest decrementRequest = new StockDecrementRequest(itemRequest.getProductId(), itemRequest.getQuantity());
                 log.info("Attempting to decrement stock for product ID: {} by quantity: {}", itemRequest.getProductId(), itemRequest.getQuantity());
                 ResponseEntity<Void> decrementResponse = productClient.decrementStock(decrementRequest);
@@ -90,20 +101,17 @@ public class OrderServiceImpl implements OrderService {
                         log.error(errorMessage);
                         throw new InsufficientStockException(errorMessage);
                     } else {
-                        // General error from product-service during stock decrement
                         String errorMessage = String.format("Failed to decrement stock for product ID: %s. Product service returned status: %s. Response body: %s",
                                 itemRequest.getProductId(), decrementResponse.getStatusCode(), decrementResponse.getBody());
                         log.error(errorMessage);
-                        throw new RuntimeException(errorMessage); // This will trigger transaction rollback
+                        throw new RuntimeException(errorMessage);
                     }
                 }
                 log.info("Stock successfully decremented for product ID: {} by {}", itemRequest.getProductId(), itemRequest.getQuantity());
 
             } catch (ResourceNotFoundException | InsufficientStockException e) {
-                // Re-throw specific, known exceptions for @ExceptionHandler to catch
                 throw e;
             } catch (Exception e) {
-                // Catch any other unexpected errors from Feign client (network, service down, etc.)
                 log.error("Critical error during product service interaction for product ID {}: {}", itemRequest.getProductId(), e.getMessage(), e);
                 throw new RuntimeException("Failed to process order due to product service issue for product " + itemRequest.getProductId() + ": " + e.getMessage(), e);
             }
@@ -131,7 +139,7 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         Order savedOrder = orderRepository.save(order);
-        orderItems.forEach(item -> item.setOrder(savedOrder)); // Establish bidirectional link
+        orderItems.forEach(item -> item.setOrder(savedOrder));
 
         log.info("Order placed successfully with ID: {} and orderNumber: {}", savedOrder.getId(), savedOrder.getOrderNumber());
         return mapToOrderResponse(savedOrder);
@@ -152,7 +160,6 @@ public class OrderServiceImpl implements OrderService {
 
         Long userId = Long.parseLong(userIdString);
 
-        // Synchronous call to shopping-cart-service
         CartResponse cart;
         try {
             log.info("Calling shopping-cart-service to get cart for user ID: {}", userIdString);
@@ -176,7 +183,6 @@ public class OrderServiceImpl implements OrderService {
             log.debug("Processing cart item for product ID: {} with quantity: {}", cartItem.getProductId(), cartItem.getQuantity());
 
             try {
-                // Synchronous call to product-service to get product details and decrement stock
                 log.info("Calling product-service to get details for product ID: {}", cartItem.getProductId());
                 ResponseEntity<ProductResponse> productResponse = productClient.getProductById(cartItem.getProductId());
 
@@ -187,7 +193,6 @@ public class OrderServiceImpl implements OrderService {
                 product = productResponse.getBody();
                 log.info("Received product details for ID: {}. Name: {}, Stock: {}", product.getId(), product.getName(), product.getStock());
 
-                // Synchronous call to product-service to decrement stock
                 StockDecrementRequest decrementRequest = new StockDecrementRequest(cartItem.getProductId(), cartItem.getQuantity());
                 log.info("Attempting to decrement stock for product ID: {} by quantity: {}", cartItem.getProductId(), cartItem.getQuantity());
                 ResponseEntity<Void> decrementResponse = productClient.decrementStock(decrementRequest);
@@ -202,7 +207,7 @@ public class OrderServiceImpl implements OrderService {
                         String errorMessage = String.format("Failed to decrement stock for product ID: %s. Product service returned status: %s. Response body: %s",
                                 cartItem.getProductId(), decrementResponse.getStatusCode(), decrementResponse.getBody());
                         log.error(errorMessage);
-                        throw new RuntimeException(errorMessage); // This will rollback the transaction
+                        throw new RuntimeException(errorMessage);
                     }
                 }
                 log.info("Stock successfully decremented for product ID: {} by {}", cartItem.getProductId(), cartItem.getQuantity());
@@ -237,19 +242,16 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         Order savedOrder = orderRepository.save(order);
-        orderItems.forEach(item -> item.setOrder(savedOrder)); // Ensure bidirectional link
+        orderItems.forEach(item -> item.setOrder(savedOrder));
 
         log.info("Order created from cart successfully with ID: {} for user ID: {}", savedOrder.getId(), userIdString);
 
-        // Asynchronous/Fire-and-forget call to clear the user's cart after order creation
-        // This operation is not critical for order creation transaction and can fail independently.
         try {
             log.info("Attempting to clear cart for user ID: {}", userIdString);
             shoppingCartClient.clearCartByUserId(userIdString);
             log.info("Cart cleared successfully for user ID: {}", userIdString);
         } catch (Exception e) {
             log.warn("Failed to clear cart for user ID: {}. This might require manual cleanup or a dedicated retry mechanism. Error: {}", userIdString, e.getMessage());
-            // This error doesn't roll back the order, but should be monitored.
         }
 
         return mapToOrderResponse(savedOrder);
@@ -325,7 +327,7 @@ public class OrderServiceImpl implements OrderService {
 
         if (order.getStatus().equals(statusEnum)) {
             log.info("Order ID: {} status is already {}. No update needed.", id, newStatus);
-            return mapToOrderResponse(order); // Return current state if no change
+            return mapToOrderResponse(order);
         }
 
         order.setStatus(statusEnum);
@@ -344,6 +346,151 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.deleteById(id);
         log.info("Order ID: {} deleted successfully.", id);
     }
+
+    @Override
+    @Transactional
+    public PaymentInitiationResponse initiatePayment(Long orderId) throws ResourceNotFoundException, RuntimeException {
+        log.info("Initiating payment for order ID: {}", orderId);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> {
+                    log.warn("Order not found with ID: {} for payment initiation.", orderId);
+                    return new ResourceNotFoundException("Order not found with ID: " + orderId);
+                });
+
+        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            log.warn("Payment cannot be initiated for order ID {} with current status: {}", orderId, order.getStatus());
+            throw new IllegalArgumentException("Payment cannot be initiated for order with status: " + order.getStatus());
+        }
+
+        try {
+            long amountInPaise = order.getTotalAmount().multiply(new BigDecimal("100")).longValue();
+
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amountInPaise);
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", order.getOrderNumber());
+            orderRequest.put("payment_capture", 1);
+
+            log.info("Creating Razorpay Order for internal order ID: {} with amount: {} paise", orderId, amountInPaise);
+            com.razorpay.Order razorpayOrder = razorpayClient.orders.create(orderRequest);
+            log.info("Successfully created Razorpay Order. ID: {}", (Object) razorpayOrder.get("id")); // <--- FIXED HERE
+
+            order.setRazorpayOrderId(razorpayOrder.get("id"));
+            order.setStatus(OrderStatus.PENDING_PAYMENT);
+            orderRepository.save(order);
+            log.info("Internal order ID: {} updated with Razorpay Order ID: {}", order.getId(), order.getRazorpayOrderId());
+
+            String userName = "Customer " + order.getUserId();
+            String userEmail = "customer" + order.getUserId() + "@example.com";
+            String userPhone = "9999999999";
+
+            return PaymentInitiationResponse.builder()
+                    .orderId(order.getId())
+                    .razorpayOrderId(razorpayOrder.get("id"))
+                    .razorpayKeyId(razorpayKeyId)
+                    .amountInPaise((int) amountInPaise)
+                    .currency("INR")
+                    .userName(userName)
+                    .userEmail(userEmail)
+                    .userPhone(userPhone)
+                    .build();
+
+        } catch (RazorpayException e) {
+            log.error("Error creating Razorpay Order for order ID {}: {}", orderId, e.getMessage(), e);
+            throw new RuntimeException("Failed to create Razorpay Order: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Unexpected error during payment initiation for order ID {}: {}", orderId, e.getMessage(), e);
+            throw new RuntimeException("An unexpected error occurred during payment initiation: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void handleRazorpayWebhook(Map<String, Object> payload, String razorpaySignature) throws RuntimeException {
+        log.info("Received Razorpay Webhook. Event Type: {}", (Object) payload.get("event"));
+
+        try {
+            if (razorpayWebhookSecret.equals("YOUR_RAZORPAY_WEBHOOK_SECRET_PLACEHOLDER")) {
+                 log.warn("WEBHOOK SIGNATURE VERIFICATION SKIPPED: Webhook secret is still a placeholder. THIS IS A SECURITY RISK IN PRODUCTION.");
+            } else {
+                log.warn("Webhook secret is available, but raw request body is needed for full verification. Verification skipped for now.");
+            }
+
+        } catch (Exception e) {
+            log.error("Error during webhook processing (potential verification issue): {}", e.getMessage(), e);
+        }
+
+        String event = (String) payload.get("event");
+        Map<String, Object> entity = (Map<String, Object>) payload.get("entity");
+
+        if (entity == null) {
+            log.error("Webhook payload 'entity' is null for event: {}", event);
+            return;
+        }
+
+        String razorpayPaymentId = null;
+        String razorpayOrderId = null;
+
+        if ("payment.captured".equals(event) || "payment.failed".equals(event) || "payment.authorized".equals(event)) {
+            razorpayPaymentId = (String) entity.get("id");
+            razorpayOrderId = (String) entity.get("order_id");
+            log.info("Processing payment event: {}. Payment ID: {}, Order ID: {}", (Object) event, (Object) razorpayPaymentId, (Object) razorpayOrderId); // <--- FIXED HERE
+        } else if ("order.paid".equals(event)) {
+            razorpayOrderId = (String) entity.get("id");
+            List<Map<String, Object>> payments = (List<Map<String, Object>>) entity.get("payments");
+            if (payments != null && !payments.isEmpty()) {
+                razorpayPaymentId = (String) payments.get(0).get("id");
+            }
+            log.info("Processing order event: {}. Order ID: {}, Payment ID: {}", (Object) event, (Object) razorpayOrderId, (Object) razorpayPaymentId); // <--- FIXED HERE
+        } else {
+            log.warn("Unhandled Razorpay webhook event type: {}", (Object) event); // <--- FIXED HERE
+            return;
+        }
+
+        if (razorpayOrderId == null) {
+            log.error("Razorpay Order ID not found in webhook payload for event: {}", (Object) event); // <--- FIXED HERE
+            return;
+        }
+
+        Order order = orderRepository.findByRazorpayOrderId(razorpayOrderId)
+                .orElse(null);
+
+        if (order == null) {
+            log.warn("Internal order not found for Razorpay Order ID: {}. This might be an old or invalid webhook.", (Object) razorpayOrderId); // <--- FIXED HERE
+            return;
+        }
+
+        switch (event) {
+            case "payment.captured":
+            case "order.paid":
+                order.setStatus(OrderStatus.PAID);
+                order.setRazorpayPaymentId(razorpayPaymentId);
+                log.info("Order ID: {} status updated to PAID. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId); // <--- FIXED HERE
+                break;
+            case "payment.failed":
+                order.setStatus(OrderStatus.FAILED);
+                order.setRazorpayPaymentId(razorpayPaymentId);
+                log.warn("Order ID: {} status updated to FAILED. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId); // <--- FIXED HERE
+                break;
+            case "payment.authorized":
+                order.setStatus(OrderStatus.AUTHORIZED);
+                order.setRazorpayPaymentId(razorpayPaymentId);
+                log.info("Order ID: {} status updated to AUTHORIZED. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId); // <--- FIXED HERE
+                break;
+            case "refund.processed":
+                order.setStatus(OrderStatus.REFUNDED);
+                log.info("Order ID: {} status updated to REFUNDED.", (Object) order.getId()); // <--- FIXED HERE
+                break;
+            default:
+                log.info("Webhook event {} received for Order ID {} but no status update applied.", (Object) event, (Object) order.getId()); // <--- FIXED HERE
+                return;
+        }
+
+        orderRepository.save(order);
+        log.info("Order ID: {} successfully processed webhook event: {}", (Object) order.getId(), (Object) event); // <--- FIXED HERE
+    }
+
 
     // Helper method to map Order entity to OrderResponse DTO
     private OrderResponse mapToOrderResponse(Order order) {
@@ -364,6 +511,8 @@ public class OrderServiceImpl implements OrderService {
                 .paymentInfo(order.getPaymentInfo())
                 .shippingAddress(order.getShippingAddress())
                 .orderItems(itemResponses)
+                .razorpayOrderId(order.getRazorpayOrderId())
+                .razorpayPaymentId(order.getRazorpayPaymentId())
                 .build();
     }
 

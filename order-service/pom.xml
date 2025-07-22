@@ -114,6 +114,20 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-oauth2-jose</artifactId>
         </dependency>
+        
+        <!-- Razorpay Java Client Library -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.8</version> <!-- Check Maven Central for the latest stable version -->
+        </dependency>
+
+        <!-- Razorpay SDK might require org.json. This is a common dependency. -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version> <!-- Check Maven Central for the latest stable version -->
+        </dependency>
 	</dependencies>
 
 	<dependencyManagement>

@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliMart Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+        }
+
+        /* Custom gradient backgrounds */
+        .gradient-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        }
+        
+        .gradient-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .gradient-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .gradient-info {
+            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        }
+
+        /* Glass morphism effect */
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Dropdown menu with solid background for better visibility */
+        .dropdown-menu-solid {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.7);
+        }
+
+        /* Animated elements */
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Active sidebar link */
+        .sidebar-link.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-right: 3px solid #6366f1;
+            color: #a5b4fc;
+        }
+
+        /* Chart container styling */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+
+        /* Progress bar animation */
+        .progress-bar {
+            background: linear-gradient(45deg, #6366f1, #8b5cf6);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        /* Fixed dropdown z-index issue */
+        .dropdown-container {
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            z-index: 1001;
+            margin-top: 8px;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000; /* Higher than other elements */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem; /* rounded-2xl */
+            padding: 2rem; /* p-8 */
+            width: 90%;
+            max-width: 500px;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+        /* Specific modal content for product forms to make it scrollable and shorter */
+        #upsertProductModal .modal-content {
+            max-height: 90vh; /* Shorter height */
+            overflow-y: auto; /* Scrollable */
+            padding-bottom: 1rem; /* Adjust padding for scroll */
+        }
+        /* Specific modal content for add/edit user forms to make it scrollable and shorter */
+        #upsertUserModal .modal-content {
+            max-height: 90vh; /* Shorter height */
+            overflow-y: auto; /* Scrollable */
+            padding-bottom: 1rem; /* Adjust padding for scroll */
+        }
+        /* Specific modal content for order forms to make it scrollable and shorter */
+        #updateOrderStatusModal .modal-content,
+        #viewOrderModal .modal-content {
+            max-height: 90vh; /* Shorter height */
+            overflow-y: auto; /* Scrollable */
+            padding-bottom: 1rem; /* Adjust padding for scroll */
+        }
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #cbd5e1;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .modal-close-button:hover {
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white overflow-x-hidden">
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 opacity-5">
+        <div class="absolute inset-0" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
+    </div>
+
+    <div class="flex min-h-screen relative z-10">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-all duration-300 ease-in-out">
+            <div class="h-full glass-card rounded-r-2xl border-r border-slate-700/50">
+                <!-- Logo -->
+                <div class="p-6 border-b border-slate-700/50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
+                            <i class="fas fa-store text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-white">IntelliMart</h1>
+                            <p class="text-xs text-slate-400">Admin Panel</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex-1 px-4 py-6 custom-scrollbar overflow-y-auto">
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="#" id="sidebar-dashboard" class="sidebar-link active flex items-center p-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-300 hover:bg-slate-700/50">
+                                <i class="fas fa-home w-5 h-5 mr-3"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" id="sidebar-products" class="sidebar-link flex items-center p-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-300 hover:bg-slate-700/50">
+                                <i class="fas fa-box w-5 h-5 mr-3"></i>
+                                Products
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" id="sidebar-orders" class="sidebar-link flex items-center p-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-300 hover:bg-slate-700/50">
+                                <i class="fas fa-shopping-cart w-5 h-5 mr-3"></i>
+                                Orders
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" id="sidebar-users" class="sidebar-link flex items-center p-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-300 hover:bg-slate-700/50">
+                                <i class="fas fa-users w-5 h-5 mr-3"></i>
+                                Users
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" id="sidebar-categories" class="sidebar-link flex items-center p-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-300 hover:bg-slate-700/50">
+                                <i class="fas fa-tags w-5 h-5 mr-3"></i>
+                                Categories
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" id="sidebar-settings" class="sidebar-link flex items-center p-3 text-sm font-medium rounded-xl transition-all duration-200 text-slate-300 hover:bg-slate-700/50">
+                                <i class="fas fa-cog w-5 h-5 mr-3"></i>
+                                Settings
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="glass-card border-b border-slate-700/50 p-4 relative z-20">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button id="sidebarToggle" class="md:hidden p-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+                            <i class="fas fa-bars text-slate-300"></i>
+                        </button>
+                        <div>
+                            <h2 id="main-content-title" class="text-xl font-semibold text-white">Dashboard</h2>
+                            <p id="main-content-subtitle" class="text-sm text-slate-400">Welcome back, Admin!</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <!-- Search (Global - for demonstration, actual search moved to specific views) -->
+                        <div class="relative hidden md:block">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" placeholder="Search..." class="pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none transition-colors w-64">
+                        </div>
+
+                        <!-- Profile -->
+                        <div class="dropdown-container">
+                            <button id="userMenuButton" class="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-700/50 transition-colors">
+                                <img class="h-8 w-8 rounded-full object-cover ring-2 ring-indigo-500" src="https://placehold.co/150x150/6366f1/ffffff?text=AD" alt="Admin">
+                                <span class="text-sm font-medium text-white hidden sm:block">Admin User</span>
+                                <i class="fas fa-chevron-down text-slate-400 text-xs hidden sm:block"></i>
+                            </button>
+                            
+                            <div id="userMenu" class="dropdown-menu w-48 dropdown-menu-solid rounded-xl shadow-2xl py-2 hidden">
+                                <a href="#" class="block px-4 py-3 text-sm text-slate-200 hover:bg-slate-700/70 hover:text-white transition-colors">
+                                    <i class="fas fa-user mr-3 text-indigo-400"></i>Profile
+                                </a>
+                                <a href="#" class="block px-4 py-3 text-sm text-slate-200 hover:bg-slate-700/70 hover:text-white transition-colors">
+                                    <i class="fas fa-cog mr-3 text-indigo-400"></i>Settings
+                                </a>
+                                <hr class="my-2 border-slate-600/50">
+                                <a href="#" class="block px-4 py-3 text-sm text-red-400 hover:bg-red-900/30 hover:text-red-300 transition-colors">
+                                    <i class="fas fa-sign-out-alt mr-3"></i>Logout
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <div id="content-area" class="flex-1 p-6 custom-scrollbar overflow-y-auto">
+                <!-- Dashboard Content -->
+                <div id="dashboard-view" class="content-view animate-fade-in">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- Total Revenue -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-slate-400 text-sm font-medium">Total Revenue</p>
+                                    <p class="text-2xl font-bold text-white mt-1">$350.4</p>
+                                    <p class="text-green-400 text-sm mt-1">
+                                        <i class="fas fa-arrow-up mr-1"></i>+12.5%
+                                    </p>
+                            </div>
+                                <div class="w-12 h-12 gradient-success rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-dollar-sign text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Month -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in" style="animation-delay: 0.1s">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-slate-400 text-sm font-medium">Current Month</p>
+                                    <p class="text-2xl font-bold text-white mt-1">$642.39</p>
+                                    <p class="text-blue-400 text-sm mt-1">
+                                        <i class="fas fa-arrow-up mr-1"></i>+8.2%
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 gradient-info rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sales -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in" style="animation-delay: 0.2s">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-slate-400 text-sm font-medium">Sales</p>
+                                    <p class="text-2xl font-bold text-white mt-1">$574.34</p>
+                                    <p class="text-purple-400 text-sm mt-1">
+                                        <i class="fas fa-arrow-up mr-1"></i>+15.3%
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-shopping-bag text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Products -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in" style="animation-delay: 0.3s">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-slate-400 text-sm font-medium">Total Products</p>
+                                    <p class="text-2xl font-bold text-white mt-1">500+</p>
+                                    <p class="text-orange-400 text-sm mt-1">
+                                        <i class="fas fa-box mr-1"></i>Active
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 gradient-warning rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-cubes text-white"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts and Tables Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Weekly Revenue Chart -->
+                        <div class="glass-card rounded-2xl p-6 animate-fade-in" style="animation-delay: 0.4s">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">Weekly Revenue</h3>
+                                    <p class="text-slate-400 text-sm">$37.5K total spent</p>
+                                </div>
+                                <span class="text-green-400 text-sm font-medium">
+                                    <i class="fas fa-arrow-up mr-1"></i>+24.8%
+                                </span>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Monthly Sales Chart (NEW) -->
+                        <div class="glass-card rounded-2xl p-6 animate-fade-in" style="animation-delay: 0.5s">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">Monthly Sales</h3>
+                                    <p class="text-slate-400 text-sm">Total sales by month</p>
+                                </div>
+                                <span class="text-blue-400 text-sm font-medium">
+                                    <i class="fas fa-chart-bar mr-1"></i>Trends
+                                </span>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="monthlySalesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Top 5 Products by Sales Chart (NEW) -->
+                        <div class="glass-card rounded-2xl p-6 animate-fade-in" style="animation-delay: 0.6s">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">Top 5 Products by Sales</h3>
+                                    <p class="text-slate-400 text-sm">Best performing products</p>
+                                </div>
+                                <span class="text-purple-400 text-sm font-medium">
+                                    <i class="fas fa-trophy mr-1"></i>Top Sellers
+                                </span>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="topProductsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Recent Orders (Existing) -->
+                        <div class="glass-card rounded-2xl p-6 animate-fade-in" style="animation-delay: 0.7s">
+                            <div class="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-white">Recent Orders</h3>
+                                    <p class="text-slate-400 text-sm">120 new orders today</p>
+                                </div>
+                                <button id="viewAllOrdersButton" class="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                                    View All <i class="fas fa-arrow-right ml-1"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-check text-white text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-white font-medium">Order #1234</p>
+                                            <p class="text-slate-400 text-sm">Completed</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-green-400 font-medium">$129.00</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-clock text-white text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-white font-medium">Order #1235</p>
+                                            <p class="text-slate-400 text-sm">Pending</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-yellow-400 font-medium">$89.50</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-truck text-white text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-white font-medium">Order #1236</p>
+                                            <p class="text-slate-400 text-sm">Shipped</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-blue-400 font-medium">$249.99</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Management Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Product Management -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in" style="animation-delay: 0.8s">
+                            <div class="text-center">
+                                <div class="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-box text-2xl text-white"></i>
+                                </div>
+                                <h4 class="text-xl font-semibold text-white mb-2">Product Management</h4>
+                                <p class="text-slate-400 mb-4">View, add, edit, or delete products.</p>
+                                <div class="bg-slate-800/50 rounded-xl p-4 mb-4">
+                                    <div class="text-3xl font-bold text-white">500+</div>
+                                    <div class="text-sm text-slate-400">Total Products</div>
+                                </div>
+                                <button id="manageProductsButton" class="w-full gradient-primary rounded-xl py-2 text-white font-medium hover:opacity-90 transition-opacity">
+                                    Manage Products
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- User Management (Card) -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in" style="animation-delay: 0.9s">
+                            <div class="text-center">
+                                <div class="w-16 h-16 gradient-success rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-users text-2xl text-white"></i>
+                                </div>
+                                <h4 class="text-xl font-semibold text-white mb-2">User Management</h4>
+                                <p class="text-slate-400 mb-4">Manage user accounts and roles.</p>
+                                <div class="bg-slate-800/50 rounded-xl p-4 mb-4">
+                                    <div class="text-3xl font-bold text-white">75</div>
+                                    <div class="text-sm text-slate-400">Active Users</div>
+                                </div>
+                                <button id="manageUsersButton" class="w-full gradient-success rounded-xl py-2 text-white font-medium hover:opacity-90 transition-opacity">
+                                    Manage Users
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Analytics -->
+                        <div class="glass-card rounded-2xl p-6 hover-lift animate-fade-in" style="animation-delay: 1.0s">
+                            <div class="text-center">
+                                <div class="w-16 h-16 gradient-warning rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-chart-pie text-2xl text-white"></i>
+                                </div>
+                                <h4 class="text-xl font-semibold text-white mb-2">Analytics</h4>
+                                <p class="text-slate-400 mb-4">View detailed reports and insights.</p>
+                                <div class="bg-slate-800/50 rounded-xl p-4 mb-4">
+                                    <div class="text-3xl font-bold text-white">2,579</div>
+                                    <div class="text-sm text-slate-400">Total Visitors</div>
+                                </div>
+                                <button class="w-full gradient-warning rounded-xl py-2 text-white font-medium hover:opacity-90 transition-opacity">
+                                    View Analytics
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Management View -->
+                <div id="users-view" class="content-view hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold text-white mb-6">User Management</h3>
+                    
+                    <div class="glass-card rounded-2xl p-6 mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-white">All Users</h4>
+                            <button id="add-user-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-plus mr-2"></i> Add New User
+                            </button>
+                        </div>
+                        
+                        <!-- User Search Input (NEW) -->
+                        <div class="mb-4">
+                            <input type="text" id="userSearchInput" placeholder="Search users by ID, name, email, or role..."
+                                class="w-full bg-slate-800/50 border border-slate-600 rounded-lg py-2 px-4 text-white placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-slate-700/50">
+                                <thead class="bg-slate-800/50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Email</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Role</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body" class="divide-y divide-slate-700/50">
+                                    <!-- User rows will be dynamically inserted here by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Management View (NEW) -->
+                <div id="products-view" class="content-view hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold text-white mb-6">Product Management</h3>
+                    
+                    <div class="glass-card rounded-2xl p-6 mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-white">All Products</h4>
+                            <button id="addProductButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-plus mr-2"></i> Add New Product
+                            </button>
+                        </div>
+                        
+                        <!-- Product Search Input (NEW) -->
+                        <div class="mb-4">
+                            <input type="text" id="productSearchInput" placeholder="Search products by ID, name, description, or category..."
+                                class="w-full bg-slate-800/50 border border-slate-600 rounded-lg py-2 px-4 text-white placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-slate-700/50">
+                                <thead class="bg-slate-800/50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Image</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Price</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Stock</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Category</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-table-body" class="divide-y divide-slate-700/50">
+                                    <!-- Product rows will be dynamically inserted here by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Management View (NEW) -->
+                <div id="orders-view" class="content-view hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold text-white mb-6">Order Management</h3>
+                    
+                    <div class="glass-card rounded-2xl p-6 mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-white">All Orders</h4>
+                            <!-- Add Order Button (Optional, if direct order creation is allowed) -->
+                            <!-- <button id="addOrderButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg flex items-center transition-colors">
+                                <i class="fas fa-plus mr-2"></i> Add New Order
+                            </button> -->
+                        </div>
+                        
+                        <!-- Order Filters -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label for="orderStatusFilter" class="block text-sm font-medium text-slate-400 mb-1">Filter by Status</label>
+                                <select id="orderStatusFilter" class="w-full bg-slate-800/50 border border-slate-600 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">All Statuses</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="PENDING_PAYMENT">Pending Payment</option>
+                                    <option value="AUTHORIZED">Authorized</option>
+                                    <option value="PAID">Paid</option>
+                                    <option value="SHIPPED">Shipped</option>
+                                    <option value="DELIVERED">Delivered</option>
+                                    <option value="CANCELLED">Cancelled</option>
+                                    <option value="FAILED">Failed</option>
+                                    <option value="REFUNDED">Refunded</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="orderStartDateFilter" class="block text-sm font-medium text-slate-400 mb-1">Start Date</label>
+                                <input type="date" id="orderStartDateFilter" class="w-full bg-slate-800/50 border border-slate-600 rounded-lg py-2 px-3 text-white placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="orderEndDateFilter" class="block text-sm font-medium text-slate-400 mb-1">End Date</label>
+                                <input type="date" id="orderEndDateFilter" class="w-full bg-slate-800/50 border border-slate-600 rounded-lg py-2 px-3 text-white placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <input type="text" id="orderSearchInput" placeholder="Search orders by ID, order number, or user ID..."
+                                class="w-full bg-slate-800/50 border border-slate-600 rounded-lg py-2 px-4 text-white placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="min-w-full divide-y divide-slate-700/50">
+                                <thead class="bg-slate-800/50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Order No.</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">User ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Total</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Status</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Created At</th>
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-table-body" class="divide-y divide-slate-700/50">
+                                    <!-- Order rows will be dynamically inserted here by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other Management Views (Categories, Settings) can go here, initially hidden -->
+                <div id="categories-view" class="content-view hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold text-white mb-6">Category Management</h3>
+                    <p class="text-slate-400">Content for category management will go here.</p>
+                </div>
+
+                <div id="settings-view" class="content-view hidden animate-fade-in">
+                    <h3 class="text-2xl font-bold text-white mb-6">Settings</h3>
+                    <p class="text-slate-400">Content for settings will go here.</p>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals for User Actions -->
+
+    <!-- View User Details Modal -->
+    <div id="viewUserModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeModal('viewUserModal')">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">User Details</h3>
+            <div class="space-y-3 text-slate-300">
+                <p><strong>ID:</strong> <span id="viewUserId"></span></p>
+                <p><strong>Name:</strong> <span id="viewUserName"></span></p>
+                <p><strong>Email:</strong> <span id="viewUserEmail"></span></p>
+                <p><strong>Role:</strong> <span id="viewUserRole"></span></p>
+                <p><strong>Status:</strong> <span id="viewUserStatus"></span></p>
+            </div>
+            <div class="mt-6 text-right">
+                <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('viewUserModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal-overlay">
+        <div class="modal-content custom-scrollbar">
+            <button class="modal-close-button" onclick="closeModal('editUserModal')">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">Edit User</h3>
+            <form id="editUserForm" class="space-y-4">
+                <div>
+                    <label for="editUserId" class="block text-sm font-medium text-slate-400">ID</label>
+                    <input type="text" id="editUserId" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" readonly>
+                </div>
+                <div>
+                    <label for="editUserName" class="block text-sm font-medium text-slate-400">Name</label>
+                    <input type="text" id="editUserName" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="editUserEmail" class="block text-sm font-medium text-slate-400">Email</label>
+                    <input type="email" id="editUserEmail" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="editUserRole" class="block text-sm font-medium text-slate-400">Role</label>
+                    <select id="editUserRole" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="Admin">Admin</option>
+                        <option value="Editor">Editor</option>
+                        <option value="User">User</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="editUserStatus" class="block text-sm font-medium text-slate-400">Status</label>
+                    <select id="editUserStatus" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('editUserModal')">Cancel</button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add New User Modal (NEW) -->
+    <div id="upsertUserModal" class="modal-overlay">
+        <div class="modal-content custom-scrollbar">
+            <button class="modal-close-button" onclick="closeModal('upsertUserModal')">&times;</button>
+            <h3 id="upsertUserModalTitle" class="text-xl font-bold text-white mb-4">Add New User</h3>
+            <form id="upsertUserForm" class="space-y-4">
+                <div>
+                    <label for="newUserName" class="block text-sm font-medium text-slate-400">Name</label>
+                    <input type="text" id="newUserName" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+                <div>
+                    <label for="newUserEmail" class="block text-sm font-medium text-slate-400">Email</label>
+                    <input type="email" id="newUserEmail" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+                <div>
+                    <label for="newUserRole" class="block text-sm font-medium text-slate-400">Role</label>
+                    <select id="newUserRole" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="User">User</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Editor">Editor</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="newUserStatus" class="block text-sm font-medium text-slate-400">Status</label>
+                    <select id="newUserStatus" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('upsertUserModal')">Cancel</button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeModal('deleteConfirmModal')">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">Confirm Deletion</h3>
+            <p class="text-slate-300 mb-6">Are you sure you want to delete <span id="deleteUserNameConfirm" class="font-semibold"></span>?</p>
+            <div class="flex justify-end space-x-3">
+                <button class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+                <button id="confirmDeleteButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals for Product Actions -->
+
+    <!-- View Product Details Modal -->
+    <div id="viewProductModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeModal('viewProductModal')">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">Product Details</h3>
+            <div class="space-y-3 text-slate-300">
+                <p><strong>ID:</strong> <span id="viewProductId"></span></p>
+                <p><strong>Name:</strong> <span id="viewProductName"></span></p>
+                <p><strong>Description:</strong> <span id="viewProductDescription"></span></p>
+                <p><strong>Price:</strong> <span id="viewProductPrice"></span></p>
+                <p><strong>Stock:</strong> <span id="viewProductStock"></span></p>
+                <p><strong>Category:</strong> <span id="viewProductCategory"></span></p>
+                <div class="flex items-center">
+                    <strong>Image:</strong> 
+                    <img id="viewProductImage" src="" alt="Product Image" class="ml-3 h-20 w-20 object-cover rounded-md border border-slate-700/50">
+                </div>
+            </div>
+            <div class="mt-6 text-right">
+                <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('viewProductModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="upsertProductModal" class="modal-overlay">
+        <div class="modal-content custom-scrollbar"> <!-- Added custom-scrollbar class here -->
+            <button class="modal-close-button" onclick="closeModal('upsertProductModal')">&times;</button>
+            <h3 id="upsertProductModalTitle" class="text-xl font-bold text-white mb-4">Add New Product</h3>
+            <form id="upsertProductForm" class="space-y-3"> <!-- Adjusted space-y for compactness -->
+                <div>
+                    <label for="productId" class="block text-sm font-medium text-slate-400">ID (Auto-generated for new)</label>
+                    <input type="text" id="productId" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" readonly>
+                </div>
+                <div>
+                    <label for="productName" class="block text-sm font-medium text-slate-400">Name</label>
+                    <input type="text" id="productName" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+                <div>
+                    <label for="productDescription" class="block text-sm font-medium text-slate-400">Description</label>
+                    <textarea id="productDescription" rows="2" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label for="productPrice" class="block text-sm font-medium text-slate-400">Price</label>
+                    <input type="number" id="productPrice" step="0.01" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+                <div>
+                    <label for="productStock" class="block text-sm font-medium text-slate-400">Stock</label>
+                    <input type="number" id="productStock" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+                <div>
+                    <label for="productCategory" class="block text-sm font-medium text-slate-400">Category</label>
+                    <input type="text" id="productCategory" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="productImageUrl" class="block text-sm font-medium text-slate-400">Image URL</label>
+                    <input type="url" id="productImageUrl" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    <p class="text-xs text-slate-500 mt-1">Provide a direct image URL (e.g., from placehold.co)</p>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('upsertProductModal')">Cancel</button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Product Confirmation Modal -->
+    <div id="deleteProductConfirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold text-white mb-4">Confirm Product Deletion</h3>
+            <p class="text-slate-300 mb-6">Are you sure you want to delete product <span id="deleteProductNameConfirm" class="font-semibold"></span>?</p>
+            <div class="flex justify-end space-x-3">
+                <button class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('deleteProductConfirmModal')">Cancel</button>
+                <button id="confirmDeleteProductButton" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals for Order Actions -->
+
+    <!-- View Order Details Modal -->
+    <div id="viewOrderModal" class="modal-overlay">
+        <div class="modal-content custom-scrollbar">
+            <button class="modal-close-button" onclick="closeModal('viewOrderModal')">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">Order Details</h3>
+            <div class="space-y-3 text-slate-300">
+                <p><strong>ID:</strong> <span id="viewOrderId"></span></p>
+                <p><strong>Order Number:</strong> <span id="viewOrderNumber"></span></p>
+                <p><strong>User ID:</strong> <span id="viewOrderUserId"></span></p>
+                <p><strong>Total Amount:</strong> <span id="viewOrderTotalAmount"></span></p>
+                <p><strong>Status:</strong> <span id="viewOrderStatus"></span></p>
+                <p><strong>Payment Info:</strong> <span id="viewOrderPaymentInfo"></span></p>
+                <p><strong>Shipping Address:</strong> <span id="viewOrderShippingAddress"></span></p>
+                <p><strong>Created At:</strong> <span id="viewOrderCreatedAt"></span></p>
+                <p><strong>Updated At:</strong> <span id="viewOrderUpdatedAt"></span></p>
+                <h4 class="text-lg font-semibold text-white mt-4 mb-2">Items:</h4>
+                <div id="viewOrderItems" class="space-y-2">
+                    <!-- Order items will be dynamically inserted here -->
+                </div>
+            </div>
+            <div class="mt-6 text-right">
+                <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('viewOrderModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Order Status Modal -->
+    <div id="updateOrderStatusModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeModal('updateOrderStatusModal')">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">Update Order Status</h3>
+            <form id="updateOrderStatusForm" class="space-y-4">
+                <div>
+                    <label for="updateOrderId" class="block text-sm font-medium text-slate-400">Order ID</label>
+                    <input type="text" id="updateOrderId" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" readonly>
+                </div>
+                <div>
+                    <label for="updateOrderNumber" class="block text-sm font-medium text-slate-400">Order Number</label>
+                    <input type="text" id="updateOrderNumber" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" readonly>
+                </div>
+                <div>
+                    <label for="newOrderStatus" class="block text-sm font-medium text-slate-400">New Status</label>
+                    <select id="newOrderStatus" class="mt-1 block w-full bg-slate-800/50 border border-slate-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="PENDING">Pending</option>
+                        <option value="PENDING_PAYMENT">Pending Payment</option>
+                        <option value="AUTHORIZED">Authorized</option>
+                        <option value="PAID">Paid</option>
+                        <option value="SHIPPED">Shipped</option>
+                        <option value="DELIVERED">Delivered</option>
+                        <option value="CANCELLED">Cancelled</option>
+                        <option value="FAILED">Failed</option>
+                        <option value="REFUNDED">Refunded</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" onclick="closeModal('updateOrderStatusModal')">Cancel</button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // Theme and UI Management
+        const htmlElement = document.documentElement;
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const userMenuButton = document.getElementById('userMenuButton');
+        const userMenu = document.getElementById('userMenu');
+        const sidebarLinks = document.querySelectorAll('.sidebar-link'); // All sidebar navigation links
+
+        const contentViews = document.querySelectorAll('.content-view'); // All main content sections
+        const mainContentTitle = document.getElementById('main-content-title');
+        const mainContentSubtitle = document.getElementById('main-content-subtitle');
+
+        const usersTableBody = document.getElementById('users-table-body');
+        const productsTableBody = document.getElementById('products-table-body');
+        const ordersTableBody = document.getElementById('orders-table-body');
+
+        // Modal elements for Users
+        const viewUserModal = document.getElementById('viewUserModal');
+        const editUserModal = document.getElementById('editUserModal');
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        const upsertUserModal = document.getElementById('upsertUserModal');
+        const upsertUserModalTitle = document.getElementById('upsertUserModalTitle');
+        const upsertUserForm = document.getElementById('upsertUserForm');
+
+
+        // Modal elements for Products
+        const viewProductModal = document.getElementById('viewProductModal');
+        const upsertProductModal = document.getElementById('upsertProductModal');
+        const upsertProductModalTitle = document.getElementById('upsertProductModalTitle');
+        const upsertProductForm = document.getElementById('upsertProductForm');
+        const deleteProductConfirmModal = document.getElementById('deleteProductConfirmModal');
+
+        // Modal elements for Orders
+        const viewOrderModal = document.getElementById('viewOrderModal');
+        const updateOrderStatusModal = document.getElementById('updateOrderStatusModal');
+        const updateOrderStatusForm = document.getElementById('updateOrderStatusForm');
+
+        // Search/Filter inputs
+        const userSearchInput = document.getElementById('userSearchInput');
+        const productSearchInput = document.getElementById('productSearchInput');
+        const orderSearchInput = document.getElementById('orderSearchInput');
+        const orderStatusFilter = document.getElementById('orderStatusFilter');
+        const orderStartDateFilter = document.getElementById('orderStartDateFilter');
+        const orderEndDateFilter = document.getElementById('orderEndDateFilter');
+
+        // Chart instances to destroy and re-create (NEW)
+        let revenueChartInstance;
+        let monthlySalesChartInstance;
+        let topProductsChartInstance;
+
+        // --- Mock API Service (simulating auth-service via API Gateway) ---
+        let mockUsersData = [ // Use 'let' because we might re-assign after deletions
+            { id: 'USR001', name: 'Alice Johnson', email: 'alice.j@example.com', role: 'Admin', status: 'Active' },
+            { id: 'USR002', name: 'Bob Williams', email: 'bob.w@example.com', role: 'User', status: 'Active' },
+            { id: 'USR003', name: 'Charlie Brown', email: 'charlie.b@example.com', role: 'Editor', status: 'Inactive' },
+            { id: 'USR004', name: 'Diana Prince', email: 'diana.p@example.com', role: 'User', status: 'Active' },
+            { id: 'USR005', name: 'Eve Adams', email: 'eve.a@example.com', role: 'User', status: 'Active' },
+            { id: 'USR006', name: 'Frank White', email: 'frank.w@example.com', role: 'Admin', status: 'Active' },
+            { id: 'USR007', name: 'Grace Lee', email: 'grace.l@example.com', role: 'User', status: 'Inactive' },
+            { id: 'USR008', name: 'Henry King', email: 'henry.k@example.com', role: 'User', status: 'Active' },
+            { id: 'USR009', name: 'Ivy Green', email: 'ivy.g@example.com', role: 'Editor', status: 'Active' },
+            { id: 'USR010', name: 'Jack Black', email: 'jack.b@example.com', role: 'User', status: 'Active' }
+        ];
+        let nextUserId = Math.max(...mockUsersData.map(u => parseInt(u.id.replace('USR', '')))) + 1;
+        if (isNaN(nextUserId)) nextUserId = 1; // Fallback for empty array
+
+        /**
+         * Simulates an AJAX call to fetch user data.
+         * In a real application, this would be a `fetch` call to your API Gateway.
+         */
+        async function mockFetchUsers() {
+            return new Promise(resolve => {
+                setTimeout(() => { // Simulate network delay
+                    resolve([...mockUsersData]); // Return a copy to avoid direct mutation issues
+                }, 300);
+            });
+        }
+
+        /**
+         * Renders the user data into the HTML table.
+         * @param {Array<Object>} users - An array of user objects.
+         */
+        function renderUsersTable(users) {
+            usersTableBody.innerHTML = ''; // Clear existing rows
+            users.forEach(user => {
+                const row = usersTableBody.insertRow();
+                row.classList.add('hover:bg-slate-800/50', 'transition-colors', 'duration-200');
+
+                // ID
+                let cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'font-medium', 'text-white');
+                cell.textContent = user.id;
+
+                // Name
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = user.name;
+
+                // Email
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = user.email;
+
+                // Role
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = user.role;
+
+                // Status
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm');
+                const statusSpan = document.createElement('span');
+                statusSpan.textContent = user.status;
+                statusSpan.classList.add('px-2', 'inline-flex', 'text-xs', 'leading-5', 'font-semibold', 'rounded-full');
+                if (user.status === 'Active') {
+                    statusSpan.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900/50', 'dark:text-green-300');
+                } else {
+                    statusSpan.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900/50', 'dark:text-red-300');
+                }
+                cell.appendChild(statusSpan);
+
+                // Actions
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-right', 'text-sm', 'font-medium');
+                
+                const viewBtn = document.createElement('button');
+                viewBtn.textContent = 'View';
+                viewBtn.classList.add('text-indigo-400', 'hover:text-indigo-300', 'mr-3', 'transition-colors');
+                viewBtn.onclick = () => showUserDetails(user);
+
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.classList.add('text-blue-400', 'hover:text-blue-300', 'mr-3', 'transition-colors');
+                editBtn.onclick = () => showEditUserModal(user);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.classList.add('text-red-400', 'hover:text-red-300', 'transition-colors');
+                deleteBtn.onclick = () => showDeleteConfirmModal(user);
+
+                cell.appendChild(viewBtn);
+                cell.appendChild(editBtn);
+                cell.appendChild(deleteBtn);
+            });
+        }
+
+        /**
+         * Filters the users table based on the search input.
+         */
+        function filterUsersTable() {
+            const searchTerm = userSearchInput.value.toLowerCase();
+            const filteredUsers = mockUsersData.filter(user =>
+                user.id.toLowerCase().includes(searchTerm) ||
+                user.name.toLowerCase().includes(searchTerm) ||
+                user.email.toLowerCase().includes(searchTerm) ||
+                user.role.toLowerCase().includes(searchTerm)
+            );
+            renderUsersTable(filteredUsers);
+        }
+
+        /**
+         * Shows a modal.
+         * @param {string} modalId - The ID of the modal overlay element.
+         */
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        /**
+         * Closes a modal.
+         * @param {string} modalId - The ID of the modal overlay element.
+         */
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        /**
+         * Populates and shows the View User Details modal.
+         * @param {Object} user - The user object to display.
+         */
+        function showUserDetails(user) {
+            document.getElementById('viewUserId').textContent = user.id;
+            document.getElementById('viewUserName').textContent = user.name;
+            document.getElementById('viewUserEmail').textContent = user.email;
+            document.getElementById('viewUserRole').textContent = user.role;
+            document.getElementById('viewUserStatus').textContent = user.status;
+            showModal('viewUserModal');
+        }
+
+        /**
+         * Populates and shows the Edit User modal.
+         * @param {Object} user - The user object to edit.
+         */
+        function showEditUserModal(user) {
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUserName').value = user.name;
+            document.getElementById('editUserEmail').value = user.email;
+            document.getElementById('editUserRole').value = user.role;
+            document.getElementById('editUserStatus').value = user.status;
+
+            // Handle form submission for editing
+            const editUserForm = document.getElementById('editUserForm');
+            editUserForm.onsubmit = (e) => {
+                e.preventDefault();
+                const updatedUser = {
+                    id: document.getElementById('editUserId').value,
+                    name: document.getElementById('editUserName').value,
+                    email: document.getElementById('editUserEmail').value,
+                    role: document.getElementById('editUserRole').value,
+                    status: document.getElementById('editUserStatus').value
+                };
+                console.log('Updated user:', updatedUser);
+                // In a real app, you'd send this data to your API to update the user
+                
+                // Update mock data and re-render table
+                const index = mockUsersData.findIndex(u => u.id === updatedUser.id);
+                if (index !== -1) {
+                    mockUsersData[index] = updatedUser;
+                }
+                filterUsersTable(); // Re-render with updated data (and current filter)
+                closeModal('editUserModal');
+            };
+            showModal('editUserModal');
+        }
+
+        /**
+         * Shows the Add New User modal with empty fields.
+         */
+        function showAddUserModal() {
+            upsertUserModalTitle.textContent = 'Add New User';
+            upsertUserForm.reset(); // Clear form fields
+            upsertUserForm.onsubmit = handleAddUser; // Set the submit handler for adding
+            showModal('upsertUserModal');
+        }
+
+        /**
+         * Handles the submission of the Add User form.
+         * @param {Event} e - The form submission event.
+         */
+        function handleAddUser(e) {
+            e.preventDefault();
+            const newUser = {
+                id: `USR${String(nextUserId++).padStart(3, '0')}`, // Simple ID generation
+                name: document.getElementById('newUserName').value,
+                email: document.getElementById('newUserEmail').value,
+                role: document.getElementById('newUserRole').value,
+                status: document.getElementById('newUserStatus').value
+            };
+            mockUsersData.push(newUser);
+            console.log('Added new user:', newUser);
+            closeModal('upsertUserModal');
+            filterUsersTable(); // Re-render to show new user (and current filter)
+        }
+
+        /**
+         * Shows the Delete Confirmation modal.
+         * @param {Object} user - The user object to delete.
+         */
+        function showDeleteConfirmModal(user) {
+            document.getElementById('deleteUserNameConfirm').textContent = user.name;
+            const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+            // Remove any previous event listeners to prevent multiple calls
+            confirmDeleteButton.onclick = null; 
+            confirmDeleteButton.onclick = () => {
+                console.log('Deleting user:', user.id);
+                // In a real app, you'd call an API to delete the user
+                mockUsersData = mockUsersData.filter(u => u.id !== user.id); // Remove from mock data
+                filterUsersTable(); // Re-render with updated data
+                closeModal('deleteConfirmModal');
+            };
+            showModal('deleteConfirmModal');
+        }
+
+        // --- Mock Product Data and Functions ---
+        let mockProductsData = [
+            { id: 'PROD001', name: 'Smartwatch X', description: 'Advanced smartwatch with health tracking.', price: 199.99, stock: 150, category: 'Electronics', imageUrl: 'https://placehold.co/50x50/6366f1/ffffff?text=SW' },
+            { id: 'PROD002', name: 'Wireless Earbuds', description: 'High-fidelity sound, comfortable fit.', price: 79.99, stock: 300, category: 'Audio', imageUrl: 'https://placehold.co/50x50/10b981/ffffff?text=EB' },
+            { id: 'PROD003', name: 'Portable Bluetooth Speaker', description: 'Loud sound, long battery life.', price: 49.99, stock: 80, category: 'Audio', imageUrl: 'https://placehold.co/50x50/f59e0b/ffffff?text=SP' },
+            { id: 'PROD004', name: 'Gaming Mouse', description: 'Ergonomic design, customizable RGB.', price: 35.00, stock: 220, category: 'Gaming', imageUrl: 'https://placehold.co/50x50/06b6d4/ffffff?text=GM' },
+            { id: 'PROD005', name: 'Mechanical Keyboard', description: 'Tactile switches, durable build.', price: 89.99, stock: 100, category: 'Gaming', imageUrl: 'https://placehold.co/50x50/8b5cf6/ffffff?text=KB' }
+        ];
+        // Ensure nextProductId is correctly initialized, considering potential mock data changes
+        let nextProductId = Math.max(...mockProductsData.map(p => parseInt(p.id.replace('PROD', '')))) + 1;
+        if (isNaN(nextProductId)) nextProductId = 1; // Fallback for empty array
+
+        /**
+         * Simulates an AJAX call to fetch product data.
+         */
+        async function mockFetchProducts() {
+            return new Promise(resolve => {
+                setTimeout(() => { // Simulate network delay
+                    resolve([...mockProductsData]); // Return a copy
+                }, 300);
+            });
+        }
+
+        /**
+         * Renders the product data into the HTML table.
+         * @param {Array<Object>} products - An array of product objects.
+         */
+        function renderProductsTable(products) {
+            productsTableBody.innerHTML = ''; // Clear existing rows
+            products.forEach(product => {
+                const row = productsTableBody.insertRow();
+                row.classList.add('hover:bg-slate-800/50', 'transition-colors', 'duration-200');
+
+                // ID
+                let cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'font-medium', 'text-white');
+                cell.textContent = product.id;
+
+                // Image
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                const img = document.createElement('img');
+                img.src = product.imageUrl || 'https://placehold.co/50x50/cccccc/000000?text=No+Image';
+                img.alt = product.name;
+                img.classList.add('h-10', 'w-10', 'object-cover', 'rounded-md');
+                img.onerror = function() { this.src = 'https://placehold.co/50x50/cccccc/000000?text=No+Image'; }; // Fallback
+                cell.appendChild(img);
+
+                // Name
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = product.name;
+
+                // Price
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = `$${product.price ? product.price.toFixed(2) : '0.00'}`;
+
+                // Stock
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = product.stock;
+
+                // Category
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = product.category || 'N/A';
+
+                // Actions
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-right', 'text-sm', 'font-medium');
+                
+                const viewBtn = document.createElement('button');
+                viewBtn.textContent = 'View';
+                viewBtn.classList.add('text-indigo-400', 'hover:text-indigo-300', 'mr-3', 'transition-colors');
+                viewBtn.onclick = () => showProductDetails(product);
+
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.classList.add('text-blue-400', 'hover:text-blue-300', 'mr-3', 'transition-colors');
+                editBtn.onclick = () => showEditProductModal(product);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.classList.add('text-red-400', 'hover:text-red-300', 'transition-colors');
+                deleteBtn.onclick = () => showDeleteProductConfirmModal(product);
+
+                cell.appendChild(viewBtn);
+                cell.appendChild(editBtn);
+                cell.appendChild(deleteBtn);
+            });
+        }
+
+        /**
+         * Filters the products table based on the search input.
+         */
+        function filterProductsTable() {
+            const searchTerm = productSearchInput.value.toLowerCase();
+            const filteredProducts = mockProductsData.filter(product =>
+                product.id.toLowerCase().includes(searchTerm) ||
+                product.name.toLowerCase().includes(searchTerm) ||
+                product.description.toLowerCase().includes(searchTerm) ||
+                (product.category && product.category.toLowerCase().includes(searchTerm))
+            );
+            renderProductsTable(filteredProducts);
+        }
+
+        /**
+         * Populates and shows the View Product Details modal.
+         * @param {Object} product - The product object to display.
+         */
+        function showProductDetails(product) {
+            console.log('Attempting to show product details for:', product); // Debug log
+            try {
+                document.getElementById('viewProductId').textContent = product.id || 'N/A';
+                document.getElementById('viewProductName').textContent = product.name || 'N/A';
+                document.getElementById('viewProductDescription').textContent = product.description || 'No description provided.';
+                document.getElementById('viewProductPrice').textContent = `$${product.price ? product.price.toFixed(2) : '0.00'}`;
+                // Handle stock display, ensuring 0 is shown correctly, not as 'N/A'
+                document.getElementById('viewProductStock').textContent = (product.stock !== undefined && product.stock !== null) ? product.stock : 'N/A';
+                document.getElementById('viewProductCategory').textContent = product.category || 'N/A';
+                
+                const productImageElement = document.getElementById('viewProductImage');
+                productImageElement.src = product.imageUrl || 'https://placehold.co/50x50/cccccc/000000?text=No+Image';
+                productImageElement.onerror = function() { this.src = 'https://placehold.co/50x50/cccccc/000000?text=No+Image'; }; // Fallback
+                
+                showModal('viewProductModal');
+                console.log('Product details modal should now be visible.');
+            } catch (error) {
+                console.error('Error showing product details modal:', error);
+                // Optionally, display a user-friendly error message in the UI
+            }
+        }
+
+        /**
+         * Shows the Add Product modal with empty fields.
+         */
+        function showAddProductModal() {
+            upsertProductModalTitle.textContent = 'Add New Product';
+            upsertProductForm.reset(); // Clear form fields
+            document.getElementById('productId').value = ''; // Ensure ID is empty for new product
+            upsertProductForm.onsubmit = handleAddProduct; // Set the submit handler for adding
+            showModal('upsertProductModal');
+        }
+
+        /**
+         * Handles the submission of the Add Product form.
+         * @param {Event} e - The form submission event.
+         */
+        function handleAddProduct(e) {
+            e.preventDefault();
+            const newProduct = {
+                id: `PROD${String(nextProductId++).padStart(3, '0')}`, // Simple ID generation
+                name: document.getElementById('productName').value,
+                description: document.getElementById('productDescription').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                stock: parseInt(document.getElementById('productStock').value),
+                category: document.getElementById('productCategory').value,
+                imageUrl: document.getElementById('productImageUrl').value
+            };
+            mockProductsData.push(newProduct);
+            console.log('Added new product:', newProduct);
+            closeModal('upsertProductModal');
+            filterProductsTable(); // Re-render to show new product (and current filter)
+        }
+
+        /**
+         * Populates and shows the Edit Product modal.
+         * @param {Object} product - The product object to edit.
+         */
+        function showEditProductModal(product) {
+            upsertProductModalTitle.textContent = 'Edit Product';
+            document.getElementById('productId').value = product.id;
+            document.getElementById('productName').value = product.name;
+            document.getElementById('productDescription').value = product.description;
+            document.getElementById('productPrice').value = product.price;
+            document.getElementById('productStock').value = product.stock;
+            document.getElementById('productCategory').value = product.category;
+            document.getElementById('productImageUrl').value = product.imageUrl;
+
+            upsertProductForm.onsubmit = (e) => handleEditProduct(e, product.id); // Set the submit handler for editing
+            showModal('upsertProductModal');
+        }
+
+        /**
+         * Handles the submission of the Edit Product form.
+         * @param {Event} e - The form submission event.
+         * @param {string} productIdToUpdate - The ID of the product being updated.
+         */
+        function handleEditProduct(e, productIdToUpdate) {
+            e.preventDefault();
+            const updatedProduct = {
+                id: productIdToUpdate,
+                name: document.getElementById('productName').value,
+                description: document.getElementById('productDescription').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                stock: parseInt(document.getElementById('productStock').value),
+                category: document.getElementById('productCategory').value,
+                imageUrl: document.getElementById('productImageUrl').value
+            };
+
+            const index = mockProductsData.findIndex(p => p.id === productIdToUpdate);
+            if (index !== -1) {
+                mockProductsData[index] = updatedProduct;
+                console.log('Updated product:', updatedProduct);
+            }
+            closeModal('upsertProductModal');
+            filterProductsTable(); // Re-render to show updated product (and current filter)
+        }
+
+        /**
+         * Shows the Delete Product Confirmation modal.
+         * @param {Object} product - The product object to delete.
+         */
+        function showDeleteProductConfirmModal(product) {
+            document.getElementById('deleteProductNameConfirm').textContent = product.name;
+            const confirmDeleteProductButton = document.getElementById('confirmDeleteProductButton');
+            confirmDeleteProductButton.onclick = null; // Clear previous listeners
+            confirmDeleteProductButton.onclick = () => {
+                mockProductsData = mockProductsData.filter(p => p.id !== product.id);
+                console.log('Deleting product:', product.id);
+                closeModal('deleteProductConfirmModal');
+                filterProductsTable(); // Re-render to reflect deletion (and current filter)
+            };
+            showModal('deleteProductConfirmModal');
+        }
+
+        // --- Mock Order Data and Functions ---
+        let mockOrdersData = [
+            {
+                id: 'ORD001', orderNumber: 'UUID-12345', userId: 'USR001', totalAmount: 279.98, status: 'PAID',
+                paymentInfo: 'Credit Card', shippingAddress: '123 Main St, Anytown, USA',
+                createdAt: '2023-07-20T10:00:00', updatedAt: '2023-07-20T10:05:00',
+                items: [
+                    { productId: 'PROD001', productName: 'Smartwatch X', quantity: 1, priceAtPurchase: 199.99, imageUrl: 'https://placehold.co/50x50/6366f1/ffffff?text=SW' },
+                    { productId: 'PROD002', productName: 'Wireless Earbuds', quantity: 1, priceAtPurchase: 79.99, imageUrl: 'https://placehold.co/50x50/10b981/ffffff?text=EB' }
+                ]
+            },
+            {
+                id: 'ORD002', orderNumber: 'UUID-67890', userId: 'USR002', totalAmount: 49.99, status: 'PENDING_PAYMENT',
+                paymentInfo: 'Pending', shippingAddress: '456 Oak Ave, Otherville, USA',
+                createdAt: '2023-07-21T14:30:00', updatedAt: '2023-07-21T14:30:00',
+                items: [
+                    { productId: 'PROD003', productName: 'Portable Bluetooth Speaker', quantity: 1, priceAtPurchase: 49.99, imageUrl: 'https://placehold.co/50x50/f59e0b/ffffff?text=SP' }
+                ]
+            },
+            {
+                id: 'ORD003', orderNumber: 'UUID-ABCDE', userId: 'USR001', totalAmount: 124.99, status: 'SHIPPED',
+                paymentInfo: 'PayPal', shippingAddress: '123 Main St, Anytown, USA',
+                createdAt: '2023-07-18T09:15:00', updatedAt: '2023-07-19T11:00:00',
+                items: [
+                    { productId: 'PROD004', productName: 'Gaming Mouse', quantity: 2, priceAtPurchase: 35.00, imageUrl: 'https://placehold.co/50x50/06b6d4/ffffff?text=GM' },
+                    { productId: 'PROD005', productName: 'Mechanical Keyboard', quantity: 1, priceAtPurchase: 89.99, imageUrl: 'https://placehold.co/50x50/8b5cf6/ffffff?text=KB' }
+                ]
+            },
+            {
+                id: 'ORD004', orderNumber: 'UUID-FGHIJ', userId: 'USR003', totalAmount: 70.00, status: 'DELIVERED',
+                paymentInfo: 'Stripe', shippingAddress: '789 Pine Ln, Somewhere, USA',
+                createdAt: '2023-07-15T16:00:00', updatedAt: '2023-07-17T09:00:00',
+                items: [
+                    { productId: 'PROD004', productName: 'Gaming Mouse', quantity: 2, priceAtPurchase: 35.00, imageUrl: 'https://placehold.co/50x50/06b6d4/ffffff?text=GM' }
+                ]
+            }
+        ];
+        let nextOrderId = Math.max(...mockOrdersData.map(o => parseInt(o.id.replace('ORD', '')))) + 1;
+        if (isNaN(nextOrderId)) nextOrderId = 1;
+
+        async function mockFetchOrders() {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    resolve([...mockOrdersData]);
+                }, 300);
+            });
+        }
+
+        function renderOrdersTable(orders) {
+            ordersTableBody.innerHTML = '';
+            orders.forEach(order => {
+                const row = ordersTableBody.insertRow();
+                row.classList.add('hover:bg-slate-800/50', 'transition-colors', 'duration-200');
+
+                let cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'font-medium', 'text-white');
+                cell.textContent = order.id;
+
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = order.orderNumber;
+
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = order.userId;
+
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = `$${order.totalAmount ? order.totalAmount.toFixed(2) : '0.00'}`;
+
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm');
+                const statusSpan = document.createElement('span');
+                statusSpan.textContent = order.status;
+                statusSpan.classList.add('px-2', 'inline-flex', 'text-xs', 'leading-5', 'font-semibold', 'rounded-full');
+                // Apply status-specific colors
+                switch (order.status) {
+                    case 'PAID':
+                    case 'DELIVERED':
+                        statusSpan.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900/50', 'dark:text-green-300');
+                        break;
+                    case 'SHIPPED':
+                        statusSpan.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900/50', 'dark:text-blue-300');
+                        break;
+                    case 'PENDING':
+                    case 'PENDING_PAYMENT':
+                    case 'AUTHORIZED':
+                        statusSpan.classList.add('bg-yellow-100', 'text-yellow-800', 'dark:bg-yellow-900/50', 'dark:text-yellow-300');
+                        break;
+                    case 'CANCELLED':
+                    case 'FAILED':
+                        statusSpan.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900/50', 'dark:text-red-300');
+                        break;
+                    case 'REFUNDED':
+                        statusSpan.classList.add('bg-purple-100', 'text-purple-800', 'dark:bg-purple-900/50', 'dark:text-purple-300');
+                        break;
+                    default:
+                        statusSpan.classList.add('bg-gray-100', 'text-gray-800', 'dark:bg-gray-900/50', 'dark:text-gray-300');
+                }
+                cell.appendChild(statusSpan);
+
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-sm', 'text-slate-300');
+                cell.textContent = new Date(order.createdAt).toLocaleString(); // Format date
+
+                // Actions
+                cell = row.insertCell();
+                cell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-right', 'text-sm', 'font-medium');
+                
+                const viewBtn = document.createElement('button');
+                viewBtn.textContent = 'View';
+                viewBtn.classList.add('text-indigo-400', 'hover:text-indigo-300', 'mr-3', 'transition-colors');
+                viewBtn.onclick = () => showOrderDetails(order);
+
+                const updateStatusBtn = document.createElement('button');
+                updateStatusBtn.textContent = 'Update Status';
+                updateStatusBtn.classList.add('text-blue-400', 'hover:text-blue-300', 'transition-colors');
+                updateStatusBtn.onclick = () => showUpdateOrderStatusModal(order);
+
+                cell.appendChild(viewBtn);
+                cell.appendChild(updateStatusBtn);
+            });
+        }
+
+        function filterOrdersTable() {
+            const searchTerm = orderSearchInput.value.toLowerCase();
+            const statusFilter = orderStatusFilter.value.toUpperCase();
+            const startDate = orderStartDateFilter.value ? new Date(orderStartDateFilter.value) : null;
+            const endDate = orderEndDateFilter.value ? new Date(orderEndDateFilter.value) : null;
+
+            const filteredOrders = mockOrdersData.filter(order => {
+                const matchesSearch = order.id.toLowerCase().includes(searchTerm) ||
+                                      order.orderNumber.toLowerCase().includes(searchTerm) ||
+                                      order.userId.toLowerCase().includes(searchTerm);
+                
+                const matchesStatus = statusFilter === '' || order.status === statusFilter;
+
+                const orderDate = new Date(order.createdAt);
+                const matchesStartDate = !startDate || orderDate >= startDate;
+                // For end date, ensure it includes the whole day
+                const matchesEndDate = !endDate || orderDate <= new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+
+                return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+            });
+            renderOrdersTable(filteredOrders);
+        }
+
+        function showOrderDetails(order) {
+            document.getElementById('viewOrderId').textContent = order.id;
+            document.getElementById('viewOrderNumber').textContent = order.orderNumber;
+            document.getElementById('viewOrderUserId').textContent = order.userId;
+            document.getElementById('viewOrderTotalAmount').textContent = `$${order.totalAmount.toFixed(2)}`;
+            document.getElementById('viewOrderStatus').textContent = order.status;
+            document.getElementById('viewOrderPaymentInfo').textContent = order.paymentInfo || 'N/A';
+            document.getElementById('viewOrderShippingAddress').textContent = order.shippingAddress || 'N/A';
+            document.getElementById('viewOrderCreatedAt').textContent = new Date(order.createdAt).toLocaleString();
+            document.getElementById('viewOrderUpdatedAt').textContent = new Date(order.updatedAt).toLocaleString();
+
+            const orderItemsContainer = document.getElementById('viewOrderItems');
+            orderItemsContainer.innerHTML = ''; // Clear previous items
+
+            if (order.items && order.items.length > 0) {
+                order.items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.classList.add('flex', 'items-center', 'space-x-3', 'p-2', 'bg-slate-800/50', 'rounded-md');
+                    itemDiv.innerHTML = `
+                        <img src="${item.imageUrl || 'https://placehold.co/40x40/cccccc/000000?text=Item'}" alt="${item.productName}" class="h-10 w-10 object-cover rounded-md">
+                        <div>
+                            <p class="text-white font-medium">${item.productName}</p>
+                            <p class="text-slate-400 text-sm">Qty: ${item.quantity} | Price: $${item.priceAtPurchase.toFixed(2)}</p>
+                        </div>
+                    `;
+                    orderItemsContainer.appendChild(itemDiv);
+                });
+            } else {
+                orderItemsContainer.innerHTML = '<p class="text-slate-400">No items found for this order.</p>';
+            }
+
+            showModal('viewOrderModal');
+        }
+
+        function showUpdateOrderStatusModal(order) {
+            document.getElementById('updateOrderId').value = order.id;
+            document.getElementById('updateOrderNumber').value = order.orderNumber;
+            document.getElementById('newOrderStatus').value = order.status; // Set current status as default
+
+            updateOrderStatusForm.onsubmit = (e) => handleUpdateOrderStatus(e, order.id);
+            showModal('updateOrderStatusModal');
+        }
+
+        function handleUpdateOrderStatus(e, orderIdToUpdate) {
+            e.preventDefault();
+            const newStatus = document.getElementById('newOrderStatus').value;
+
+            const index = mockOrdersData.findIndex(o => o.id === orderIdToUpdate);
+            if (index !== -1) {
+                mockOrdersData[index].status = newStatus;
+                mockOrdersData[index].updatedAt = new Date().toISOString(); // Update timestamp
+                console.log(`Updated order ${orderIdToUpdate} status to: ${newStatus}`);
+            }
+            closeModal('updateOrderStatusModal');
+            filterOrdersTable(); // Re-render to show updated status
+        }
+
+        // --- Mock Revenue Data and Charting Functions (NEW) ---
+
+        /**
+         * Simulates fetching monthly sales data.
+         * @returns {Promise<Array<{month: string, sales: number}>>}
+         */
+        async function mockFetchMonthlySales() {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    resolve([
+                        { month: 'Jan', sales: 12000 },
+                        { month: 'Feb', sales: 15000 },
+                        { month: 'Mar', sales: 13500 },
+                        { month: 'Apr', sales: 17000 },
+                        { month: 'May', sales: 16000 },
+                        { month: 'Jun', sales: 18500 },
+                        { month: 'Jul', sales: 20000 }
+                    ]);
+                }, 400);
+            });
+        }
+
+        /**
+         * Simulates fetching top 5 products by sales.
+         * @returns {Promise<Array<{productName: string, sales: number}>>}
+         */
+        async function mockFetchTopProducts() {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    resolve([
+                        { productName: 'Smartwatch X', sales: 5500 },
+                        { productName: 'Mechanical Keyboard', sales: 4800 },
+                        { productName: 'Wireless Earbuds', sales: 3200 },
+                        { productName: 'Gaming Mouse', sales: 2900 },
+                        { productName: 'Portable BT Speaker', sales: 2100 }
+                    ]);
+                }, 500);
+            });
+        }
+
+        /**
+         * Renders the Monthly Sales Chart.
+         * @param {Array<{month: string, sales: number}>} data
+         */
+        function renderMonthlySalesChart(data) {
+            if (monthlySalesChartInstance) {
+                monthlySalesChartInstance.destroy();
+            }
+            const ctx = document.getElementById('monthlySalesChart').getContext('2d');
+            monthlySalesChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(item => item.month),
+                    datasets: [{
+                        label: 'Monthly Sales',
+                        data: data.map(item => item.sales),
+                        backgroundColor: '#8b5cf6', // Purple color
+                        borderColor: '#8b5cf6',
+                        borderWidth: 1,
+                        borderRadius: 5, // Rounded bars
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Renders the Top 5 Products by Sales Chart.
+         * @param {Array<{productName: string, sales: number}>} data
+         */
+        function renderTopProductsChart(data) {
+            if (topProductsChartInstance) {
+                topProductsChartInstance.destroy();
+            }
+            const ctx = document.getElementById('topProductsChart').getContext('2d');
+            const backgroundColors = [
+                '#6366f1', // Indigo
+                '#10b981', // Green
+                '#f59e0b', // Amber
+                '#06b6d4', // Cyan
+                '#8b5cf6'  // Purple
+            ];
+
+            topProductsChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(item => item.productName),
+                    datasets: [{
+                        label: 'Sales',
+                        data: data.map(item => item.sales),
+                        backgroundColor: backgroundColors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#e2e8f0', // White text for legend
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += '$' + context.parsed.toLocaleString();
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        /**
+         * Switches the main content view based on the clicked sidebar link.
+         * @param {string} viewId - The ID of the content view to show (e.g., 'dashboard-view', 'users-view', 'products-view').
+         * @param {string} title - The title for the main content header.
+         * @param {string} subtitle - The subtitle for the main content header.
+         */
+        async function showContentView(viewId, title, subtitle) {
+            // Hide all content views first
+            contentViews.forEach(view => view.classList.add('hidden'));
+
+            // Show the selected view
+            const selectedView = document.getElementById(viewId);
+            if (selectedView) {
+                selectedView.classList.remove('hidden');
+                mainContentTitle.textContent = title;
+                mainContentSubtitle.textContent = subtitle;
+
+                // Specific logic for Dashboard view (NEW: Load charts)
+                if (viewId === 'dashboard-view') {
+                    try {
+                        // Weekly Revenue Chart (existing)
+                        initRevenueChart();
+
+                        // Monthly Sales Chart
+                        const monthlySalesData = await mockFetchMonthlySales();
+                        renderMonthlySalesChart(monthlySalesData);
+
+                        // Top Products Chart
+                        const topProductsData = await mockFetchTopProducts();
+                        renderTopProductsChart(topProductsData);
+
+                    } catch (error) {
+                        console.error('Failed to load dashboard data:', error);
+                    }
+                }
+                // Specific logic for User Management view
+                else if (viewId === 'users-view') {
+                    try {
+                        const users = await mockFetchUsers();
+                        mockUsersData = users; // Update the global mock data
+                        filterUsersTable(); // Apply current filter or show all
+                    } catch (error) {
+                        console.error('Failed to fetch users:', error);
+                        // Display an error message to the user
+                    }
+                }
+                // Specific logic for Product Management view
+                else if (viewId === 'products-view') {
+                    try {
+                        const products = await mockFetchProducts();
+                        mockProductsData = products; // Update global mock data
+                        filterProductsTable(); // Apply current filter or show all
+                    } catch (error) {
+                        console.error('Failed to fetch products:', error);
+                        // Display an error message to the user
+                    }
+                }
+                // Specific logic for Order Management view
+                else if (viewId === 'orders-view') {
+                    try {
+                        const orders = await mockFetchOrders();
+                        mockOrdersData = orders; // Update global mock data
+                        filterOrdersTable(); // Apply current filter or show all
+                    } catch (error) {
+                        console.error('Failed to fetch orders:', error);
+                        // Display an error message to the user
+                    }
+                }
+            }
+
+            // Update active state in sidebar
+            sidebarLinks.forEach(link => link.classList.remove('active'));
+            const activeLink = document.getElementById(`sidebar-${viewId.replace('-view', '')}`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+
+            // Close sidebar on mobile after selection
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        }
+
+        // --- Event Listeners ---
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+        });
+
+        userMenuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userMenu.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!userMenuButton.contains(e.target) && !userMenu.contains(e.target)) {
+                userMenu.classList.add('hidden');
+            }
+            // Close sidebar on mobile if clicking outside, and not clicking inside a modal
+            if (window.innerWidth < 768 && !sidebar.contains(e.target) && !sidebarToggle.contains(e.target) && !e.target.closest('.modal-overlay')) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+
+        // Attach click handlers to sidebar links
+        document.getElementById('sidebar-dashboard').addEventListener('click', () => showContentView('dashboard-view', 'Dashboard', 'Welcome back, Admin!'));
+        document.getElementById('sidebar-products').addEventListener('click', () => showContentView('products-view', 'Product Management', 'Manage your store\'s inventory.'));
+        document.getElementById('sidebar-orders').addEventListener('click', () => showContentView('orders-view', 'Order Management', 'Track and process customer orders.'));
+        document.getElementById('sidebar-users').addEventListener('click', () => showContentView('users-view', 'User Management', 'Manage user accounts and roles.'));
+        document.getElementById('sidebar-categories').addEventListener('click', () => showContentView('categories-view', 'Category Management', 'Organize products into categories.'));
+        document.getElementById('sidebar-settings').addEventListener('click', () => showContentView('settings-view', 'Settings', 'Configure application settings.'));
+
+        // Attach event listener for the "Add New Product" button
+        document.getElementById('addProductButton').addEventListener('click', showAddProductModal);
+
+        // Attach event listener for the "Add New User" button
+        document.getElementById('add-user-button').addEventListener('click', showAddUserModal);
+
+        // Attach event listeners for search inputs
+        userSearchInput.addEventListener('input', filterUsersTable);
+        productSearchInput.addEventListener('input', filterProductsTable);
+
+        // Attach event listeners for order filters and search
+        orderSearchInput.addEventListener('input', filterOrdersTable);
+        orderStatusFilter.addEventListener('change', filterOrdersTable);
+        orderStartDateFilter.addEventListener('change', filterOrdersTable);
+        orderEndDateFilter.addEventListener('change', filterOrdersTable);
+
+        // Attach click handlers for dashboard management buttons
+        document.getElementById('manageProductsButton').addEventListener('click', () => showContentView('products-view', 'Product Management', 'Manage your store\'s inventory.'));
+        document.getElementById('manageUsersButton').addEventListener('click', () => showContentView('users-view', 'User Management', 'Manage user accounts and roles.'));
+        document.getElementById('viewAllOrdersButton').addEventListener('click', () => showContentView('orders-view', 'Order Management', 'Track and process customer orders.'));
+
+
+        // --- Chart Initialization (Existing code) ---
+        function initRevenueChart() {
+            if (revenueChartInstance) {
+                revenueChartInstance.destroy();
+            }
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+            gradient.addColorStop(1, 'rgba(99, 102, 241, 0.05)');
+
+            revenueChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['17', '18', '19', '20', '21', '22', '23', '24', '25'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [65, 78, 66, 44, 56, 67, 75, 82, 91],
+                        borderColor: '#6366f1',
+                        backgroundColor: gradient,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#6366f1',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                display: false
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        // Initialize the dashboard view on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            showContentView('dashboard-view', 'Dashboard', 'Welcome back, Admin!');
+        });
+    </script>
+</body>
+</html>

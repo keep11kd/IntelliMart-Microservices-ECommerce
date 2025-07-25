@@ -6,6 +6,8 @@ import com.intellimart.orderservice.dto.CartItemResponse;
 import com.intellimart.orderservice.dto.CartResponse;
 import com.intellimart.orderservice.dto.OrderItemRequest;
 import com.intellimart.orderservice.dto.OrderItemResponse;
+import com.intellimart.orderservice.dto.OrderPlacedEvent;
+import com.intellimart.orderservice.dto.OrderItemEvent;
 import com.intellimart.orderservice.dto.OrderRequest;
 import com.intellimart.orderservice.dto.OrderResponse;
 import com.intellimart.orderservice.dto.PaymentInitiationResponse;
@@ -23,7 +25,7 @@ import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Utils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // Corrected import
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.jpa.domain.Specification;
@@ -41,7 +43,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j // <--- Corrected annotation (removed extra 4)
+@Slf4j
 @Transactional
 public class OrderServiceImpl implements OrderService {
 
@@ -50,6 +52,7 @@ public class OrderServiceImpl implements OrderService {
     private final ShoppingCartClient shoppingCartClient;
     private final ProductClient productClient;
     private final RazorpayClient razorpayClient;
+    private final RabbitMQMessagePublisher messagePublisher; // <--- Ensure this class exists and is correctly imported
 
     @Value("${razorpay.key-id}")
     private String razorpayKeyId;
@@ -142,6 +145,11 @@ public class OrderServiceImpl implements OrderService {
         orderItems.forEach(item -> item.setOrder(savedOrder));
 
         log.info("Order placed successfully with ID: {} and orderNumber: {}", savedOrder.getId(), savedOrder.getOrderNumber());
+
+        // Publish Order Placed Event immediately after order creation (before payment might be confirmed)
+        // This event signifies the order has been recorded in the system.
+        publishOrderPlacedEvent(savedOrder);
+        
         return mapToOrderResponse(savedOrder);
     }
 
@@ -254,6 +262,9 @@ public class OrderServiceImpl implements OrderService {
             log.warn("Failed to clear cart for user ID: {}. This might require manual cleanup or a dedicated retry mechanism. Error: {}", userIdString, e.getMessage());
         }
 
+        // Publish Order Placed Event immediately after order creation (before payment might be confirmed)
+        publishOrderPlacedEvent(savedOrder);
+
         return mapToOrderResponse(savedOrder);
     }
 
@@ -333,6 +344,12 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(statusEnum);
         Order updatedOrder = orderRepository.save(order);
         log.info("Order ID: {} status updated to: {}", updatedOrder.getId(), updatedOrder.getStatus());
+
+        // Publish Order Placed Event if status becomes PAID due to webhook
+        if (updatedOrder.getStatus() == OrderStatus.PAID) {
+             publishOrderPlacedEvent(updatedOrder);
+        }
+
         return mapToOrderResponse(updatedOrder);
     }
 
@@ -374,7 +391,7 @@ public class OrderServiceImpl implements OrderService {
 
             log.info("Creating Razorpay Order for internal order ID: {} with amount: {} paise", orderId, amountInPaise);
             com.razorpay.Order razorpayOrder = razorpayClient.orders.create(orderRequest);
-            log.info("Successfully created Razorpay Order. ID: {}", (Object) razorpayOrder.get("id")); // <--- FIXED HERE
+            log.info("Successfully created Razorpay Order. ID: {}", (Object) razorpayOrder.get("id"));
 
             order.setRazorpayOrderId(razorpayOrder.get("id"));
             order.setStatus(OrderStatus.PENDING_PAYMENT);
@@ -407,25 +424,27 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void handleRazorpayWebhook(Map<String, Object> payload, String razorpaySignature) throws RuntimeException {
-        log.info("Received Razorpay Webhook. Event Type: {}", (Object) payload.get("event"));
+    public void handleRazorpayWebhook(String rawPayload, String razorpaySignature) throws RuntimeException { // <--- Corrected signature
+        log.info("Received Razorpay Webhook. Raw Payload Length: {}, Signature: {}", rawPayload.length(), razorpaySignature);
 
         try {
-            if (razorpayWebhookSecret.equals("YOUR_RAZORPAY_WEBHOOK_SECRET_PLACEHOLDER")) {
-                 log.warn("WEBHOOK SIGNATURE VERIFICATION SKIPPED: Webhook secret is still a placeholder. THIS IS A SECURITY RISK IN PRODUCTION.");
-            } else {
-                log.warn("Webhook secret is available, but raw request body is needed for full verification. Verification skipped for now.");
-            }
+            Utils.verifyWebhookSignature(rawPayload, razorpaySignature, razorpayWebhookSecret);
+            log.info("Razorpay Webhook signature verified successfully.");
 
+        } catch (RazorpayException e) {
+            log.error("Razorpay Webhook signature verification failed: {}", e.getMessage());
+            throw new RuntimeException("Webhook signature verification failed: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Error during webhook processing (potential verification issue): {}", e.getMessage(), e);
+            log.error("An unexpected error occurred during webhook signature verification: {}", e.getMessage(), e);
+            throw new RuntimeException("Unexpected error during webhook verification: " + e.getMessage(), e);
         }
 
-        String event = (String) payload.get("event");
-        Map<String, Object> entity = (Map<String, Object>) payload.get("entity");
+        JSONObject payloadJson = new JSONObject(rawPayload);
+        String event = (String) payloadJson.get("event");
+        Map<String, Object> entity = (Map<String, Object>) payloadJson.get("entity");
 
         if (entity == null) {
-            log.error("Webhook payload 'entity' is null for event: {}", event);
+            log.error("Webhook payload 'entity' is null for event: {}", (Object) event);
             return;
         }
 
@@ -435,21 +454,21 @@ public class OrderServiceImpl implements OrderService {
         if ("payment.captured".equals(event) || "payment.failed".equals(event) || "payment.authorized".equals(event)) {
             razorpayPaymentId = (String) entity.get("id");
             razorpayOrderId = (String) entity.get("order_id");
-            log.info("Processing payment event: {}. Payment ID: {}, Order ID: {}", (Object) event, (Object) razorpayPaymentId, (Object) razorpayOrderId); // <--- FIXED HERE
+            log.info("Processing payment event: {}. Payment ID: {}, Order ID: {}", (Object) event, (Object) razorpayPaymentId, (Object) razorpayOrderId);
         } else if ("order.paid".equals(event)) {
             razorpayOrderId = (String) entity.get("id");
             List<Map<String, Object>> payments = (List<Map<String, Object>>) entity.get("payments");
             if (payments != null && !payments.isEmpty()) {
                 razorpayPaymentId = (String) payments.get(0).get("id");
             }
-            log.info("Processing order event: {}. Order ID: {}, Payment ID: {}", (Object) event, (Object) razorpayOrderId, (Object) razorpayPaymentId); // <--- FIXED HERE
+            log.info("Processing order event: {}. Order ID: {}, Payment ID: {}", (Object) event, (Object) razorpayOrderId, (Object) razorpayPaymentId);
         } else {
-            log.warn("Unhandled Razorpay webhook event type: {}", (Object) event); // <--- FIXED HERE
+            log.warn("Unhandled Razorpay webhook event type: {}", (Object) event);
             return;
         }
 
         if (razorpayOrderId == null) {
-            log.error("Razorpay Order ID not found in webhook payload for event: {}", (Object) event); // <--- FIXED HERE
+            log.error("Razorpay Order ID not found in webhook payload for event: {}", (Object) event);
             return;
         }
 
@@ -457,38 +476,79 @@ public class OrderServiceImpl implements OrderService {
                 .orElse(null);
 
         if (order == null) {
-            log.warn("Internal order not found for Razorpay Order ID: {}. This might be an old or invalid webhook.", (Object) razorpayOrderId); // <--- FIXED HERE
+            log.warn("Internal order not found for Razorpay Order ID: {}. This might be an old or invalid webhook.", (Object) razorpayOrderId);
             return;
         }
+
+        OrderStatus originalStatus = order.getStatus();
 
         switch (event) {
             case "payment.captured":
             case "order.paid":
                 order.setStatus(OrderStatus.PAID);
                 order.setRazorpayPaymentId(razorpayPaymentId);
-                log.info("Order ID: {} status updated to PAID. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId); // <--- FIXED HERE
+                log.info("Order ID: {} status updated to PAID. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId);
                 break;
             case "payment.failed":
                 order.setStatus(OrderStatus.FAILED);
                 order.setRazorpayPaymentId(razorpayPaymentId);
-                log.warn("Order ID: {} status updated to FAILED. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId); // <--- FIXED HERE
+                log.warn("Order ID: {} status updated to FAILED. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId);
                 break;
             case "payment.authorized":
                 order.setStatus(OrderStatus.AUTHORIZED);
                 order.setRazorpayPaymentId(razorpayPaymentId);
-                log.info("Order ID: {} status updated to AUTHORIZED. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId); // <--- FIXED HERE
+                log.info("Order ID: {} status updated to AUTHORIZED. Razorpay Payment ID: {}", (Object) order.getId(), (Object) razorpayPaymentId);
                 break;
             case "refund.processed":
                 order.setStatus(OrderStatus.REFUNDED);
-                log.info("Order ID: {} status updated to REFUNDED.", (Object) order.getId()); // <--- FIXED HERE
+                log.info("Order ID: {} status updated to REFUNDED.", (Object) order.getId());
                 break;
             default:
-                log.info("Webhook event {} received for Order ID {} but no status update applied.", (Object) event, (Object) order.getId()); // <--- FIXED HERE
+                log.info("Webhook event {} received for Order ID {} but no status update applied.", (Object) event, (Object) order.getId());
                 return;
         }
 
-        orderRepository.save(order);
-        log.info("Order ID: {} successfully processed webhook event: {}", (Object) order.getId(), (Object) event); // <--- FIXED HERE
+        Order updatedOrder = orderRepository.save(order);
+
+        // Publish Order Placed Event if status becomes PAID due to webhook
+        if (originalStatus != OrderStatus.PAID && updatedOrder.getStatus() == OrderStatus.PAID) {
+             publishOrderPlacedEvent(updatedOrder);
+        }
+
+        log.info("Order ID: {} successfully processed webhook event: {}", (Object) order.getId(), (Object) event);
+    }
+
+    /**
+     * Helper method to create and publish an OrderPlacedEvent from an Order entity.
+     * @param order The Order entity from which to create the event.
+     */
+    private void publishOrderPlacedEvent(Order order) {
+        List<OrderItemEvent> itemEvents = order.getOrderItems().stream()
+                .map(item -> OrderItemEvent.builder()
+                        .productId(Long.valueOf(item.getProductId())) // <--- FIX: Convert String to Long here
+                        .productName(item.getProductName())
+                        .quantity(item.getQuantity())
+                        .priceAtPurchase(item.getPriceAtPurchase())
+                        .imageUrl(item.getImageUrl())
+                        .build())
+                .collect(Collectors.toList());
+
+        OrderPlacedEvent orderPlacedEvent = OrderPlacedEvent.builder()
+                .orderId(order.getId())
+                .userId(order.getUserId())
+                .orderNumber(order.getOrderNumber())
+                .status(order.getStatus())
+                .totalAmount(order.getTotalAmount())
+                .shippingAddress(order.getShippingAddress())
+                .paymentInfo(order.getPaymentInfo())
+                .razorpayOrderId(order.getRazorpayOrderId())
+                .razorpayPaymentId(order.getRazorpayPaymentId())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .items(itemEvents)
+                .build();
+
+        messagePublisher.publishOrderPlacedEvent(orderPlacedEvent);
     }
 
 

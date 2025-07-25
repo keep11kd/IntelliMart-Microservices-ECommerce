@@ -2,6 +2,7 @@ package com.intellimart.productservice.service;
 
 import com.intellimart.productservice.dto.ProductRequest;
 import com.intellimart.productservice.dto.ProductResponse;
+import com.intellimart.productservice.dto.RecommendationResponse;
 import com.intellimart.productservice.dto.StockDecrementRequest; // NEW IMPORT
 import com.intellimart.productservice.exception.InsufficientStockException; // NEW IMPORT
 import com.intellimart.productservice.exception.ResourceNotFoundException;
@@ -34,4 +35,8 @@ public interface ProductService {
     // --- CRITICAL METHODS FOR ORDER-SERVICE INTEGRATION ---
     void decrementStock(StockDecrementRequest request) throws ResourceNotFoundException, InsufficientStockException;
     void incrementStock(Long productId, Integer quantity) throws ResourceNotFoundException;
+    
+    
+ // NEW: Recommendation method
+    List<RecommendationResponse> getProductRecommendations(Long productId);
 }

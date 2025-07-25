@@ -2,6 +2,7 @@ package com.intellimart.orderservice.service;
 
 import com.intellimart.orderservice.dto.OrderRequest;
 import com.intellimart.orderservice.dto.OrderResponse;
+import com.intellimart.orderservice.dto.OrderResponseForProductService;
 import com.intellimart.orderservice.dto.PaymentInitiationResponse;
 import com.intellimart.orderservice.exception.InsufficientStockException;
 import com.intellimart.orderservice.exception.ResourceNotFoundException;
@@ -29,4 +30,9 @@ public interface OrderService {
     // --- FIX HERE: Updated method signature to match OrderServiceImpl ---
     void handleRazorpayWebhook(String rawPayload, String razorpaySignature) throws RuntimeException;
     // --- END FIX ---
+    
+ // --- FIX HERE: Changed return type to List<OrderResponseForProductService> ---
+    List<OrderResponseForProductService> findOrdersByProductId(Long productId);
+    // --- END FIX ---
+
 }

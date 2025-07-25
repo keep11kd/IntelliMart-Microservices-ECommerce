@@ -28,9 +28,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.BufferedReader; // <--- NEW IMPORT
+import java.io.IOException;   // <--- NEW IMPORT
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors; // <--- NEW IMPORT for stream operations
 
 @RestController
 @RequestMapping("/api/orders")
@@ -40,7 +43,7 @@ import java.util.Map;
 public class OrderController {
 
     private final OrderService orderService;
-    private final HttpServletRequest request;
+    private final HttpServletRequest request; // Keep this for exception handlers
 
     // --- Exception Handlers ---
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -347,14 +350,25 @@ public class OrderController {
     )
     @PostMapping("/razorpay-webhook")
     public ResponseEntity<Void> handleRazorpayWebhook(
-            @RequestBody Map<String, Object> payload,
+            // @RequestBody Map<String, Object> payload, // Removed this
             @RequestHeader("X-Razorpay-Signature") String razorpaySignature,
-            HttpServletRequest httpRequest
+            HttpServletRequest httpRequest // <--- Use HttpServletRequest to read raw body
     ) {
-        log.info("Received Razorpay Webhook. Event: {}", (Object) payload.get("event")); // <--- FIXED HERE
+        String rawPayload;
+        try {
+            // Read the raw request body from HttpServletRequest
+            rawPayload = httpRequest.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
+            log.info("Received Razorpay Webhook. Raw Payload Length: {}, Signature: {}", rawPayload.length(), razorpaySignature);
+            // Optionally parse to Map for logging specific event type if needed, but pass raw string to service
+            // JSONObject payloadJson = new JSONObject(rawPayload);
+            // log.info("Received Razorpay Webhook. Event: {}", (Object) payloadJson.get("event"));
+        } catch (IOException e) {
+            log.error("Error reading raw webhook payload: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
 
         try {
-            orderService.handleRazorpayWebhook(payload, razorpaySignature);
+            orderService.handleRazorpayWebhook(rawPayload, razorpaySignature); // <--- Pass rawPayload
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Error processing Razorpay webhook: {}", e.getMessage(), e);

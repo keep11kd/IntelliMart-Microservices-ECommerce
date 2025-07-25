@@ -13,6 +13,8 @@ import com.intellimart.orderservice.dto.OrderResponse;
 import com.intellimart.orderservice.dto.PaymentInitiationResponse;
 import com.intellimart.orderservice.dto.ProductResponse;
 import com.intellimart.orderservice.dto.StockDecrementRequest;
+import com.intellimart.orderservice.dto.OrderResponseForProductService;
+import com.intellimart.orderservice.dto.OrderItemResponseForProductService;
 import com.intellimart.orderservice.exception.InsufficientStockException;
 import com.intellimart.orderservice.exception.ResourceNotFoundException;
 import com.intellimart.orderservice.model.Order;
@@ -39,6 +41,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,7 +55,7 @@ public class OrderServiceImpl implements OrderService {
     private final ShoppingCartClient shoppingCartClient;
     private final ProductClient productClient;
     private final RazorpayClient razorpayClient;
-    private final RabbitMQMessagePublisher messagePublisher; // <--- Ensure this class exists and is correctly imported
+    private final RabbitMQMessagePublisher messagePublisher;
 
     @Value("${razorpay.key-id}")
     private String razorpayKeyId;
@@ -301,7 +304,38 @@ public class OrderServiceImpl implements OrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves orders that contain a specific product ID.
+     * This is intended for use by other services (e.g., Product Service for recommendations).
+     *
+     * @param productId The ID of the product to search for within order items.
+     * @return A list of OrderResponseForProductService objects.
+     */
+    @Override // <--- Add @Override here
+    public List<OrderResponseForProductService> findOrdersByProductId(Long productId) { // <--- Corrected method name
+        log.info("Fetching orders containing product ID: {}", productId);
+
+        // Find all OrderItems that contain the given productId
+        // Assuming OrderItem.productId is Long. If it's String, change findByProductId(Long) to findByProductId(String)
+        // and convert productId to String here if necessary.
+        List<OrderItem> orderItems = orderItemRepository.findByProductId(productId);
+
+        // Get distinct Orders from these OrderItems
+        Set<Order> orders = orderItems.stream()
+                .map(OrderItem::getOrder)
+                .collect(Collectors.toSet());
+
+        log.info("Found {} orders containing product ID: {}", orders.size(), productId);
+
+        // Map the distinct Orders to OrderResponseForProductService DTOs
+        return orders.stream()
+                .map(this::mapToOrderResponseForProductService)
+                .collect(Collectors.toList());
+    }
+
+
     @Override
+    @SuppressWarnings("unchecked") // Suppress warning for varargs parameter
     public List<OrderResponse> searchOrders(OrderStatus status, LocalDateTime startDate, LocalDateTime endDate) {
         log.info("Searching orders with filters - status: {}, startDate: {}, endDate: {}", status, startDate, endDate);
 
@@ -424,7 +458,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void handleRazorpayWebhook(String rawPayload, String razorpaySignature) throws RuntimeException { // <--- Corrected signature
+    public void handleRazorpayWebhook(String rawPayload, String razorpaySignature) throws RuntimeException {
         log.info("Received Razorpay Webhook. Raw Payload Length: {}, Signature: {}", rawPayload.length(), razorpaySignature);
 
         try {
@@ -461,7 +495,7 @@ public class OrderServiceImpl implements OrderService {
             if (payments != null && !payments.isEmpty()) {
                 razorpayPaymentId = (String) payments.get(0).get("id");
             }
-            log.info("Processing order event: {}. Order ID: {}, Payment ID: {}", (Object) event, (Object) razorpayOrderId, (Object) razorpayPaymentId);
+            log.info("Processing order event: {}. Order ID: {}, Payment ID: {}", (Object) event, (Object) razorpayPaymentId, (Object) razorpayPaymentId);
         } else {
             log.warn("Unhandled Razorpay webhook event type: {}", (Object) event);
             return;
@@ -525,7 +559,7 @@ public class OrderServiceImpl implements OrderService {
     private void publishOrderPlacedEvent(Order order) {
         List<OrderItemEvent> itemEvents = order.getOrderItems().stream()
                 .map(item -> OrderItemEvent.builder()
-                        .productId(Long.valueOf(item.getProductId())) // <--- FIX: Convert String to Long here
+                        .productId(Long.valueOf(item.getProductId())) // Assuming productId is String in OrderItem and needs conversion
                         .productName(item.getProductName())
                         .quantity(item.getQuantity())
                         .priceAtPurchase(item.getPriceAtPurchase())
@@ -585,6 +619,38 @@ public class OrderServiceImpl implements OrderService {
                 .priceAtPurchase(orderItem.getPriceAtPurchase())
                 .productName(orderItem.getProductName())
                 .imageUrl(orderItem.getImageUrl())
+                .build();
+    }
+
+    // NEW Helper method to map Order entity to OrderResponseForProductService DTO
+    private OrderResponseForProductService mapToOrderResponseForProductService(Order order) {
+        List<OrderItemResponseForProductService> itemResponses = order.getOrderItems() != null ?
+                order.getOrderItems().stream()
+                        .map(this::mapToOrderItemResponseForProductService)
+                        .collect(Collectors.toList()) :
+                Collections.emptyList();
+
+        return OrderResponseForProductService.builder()
+                .id(order.getId())
+                .userId(order.getUserId())
+                .orderNumber(order.getOrderNumber())
+                .status(order.getStatus().name()) // Convert enum to String
+                .totalAmount(order.getTotalAmount())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .orderItems(itemResponses)
+                .build();
+    }
+
+    // NEW Helper method to map OrderItem entity to OrderItemResponseForProductService DTO
+    private OrderItemResponseForProductService mapToOrderItemResponseForProductService(OrderItem orderItem) {
+        return OrderItemResponseForProductService.builder()
+                .id(orderItem.getId())
+                .productId(Long.valueOf(orderItem.getProductId())) // FIX: Convert String productId to Long
+                .productName(orderItem.getProductName()) // Include product name
+                .quantity(orderItem.getQuantity())
+                .priceAtPurchase(orderItem.getPriceAtPurchase())
+                .imageUrl(orderItem.getImageUrl()) // Include image URL
                 .build();
     }
 }

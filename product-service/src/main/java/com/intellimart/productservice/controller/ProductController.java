@@ -4,9 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellimart.productservice.dto.ErrorResponse;
 import com.intellimart.productservice.dto.ProductRequest;
 import com.intellimart.productservice.dto.ProductResponse;
-import com.intellimart.productservice.dto.StockDecrementRequest; // NEW IMPORT: For decrement stock endpoint
-import com.intellimart.productservice.exception.InsufficientStockException; // NEW IMPORT
-import com.intellimart.productservice.exception.ResourceNotFoundException; // NEW IMPORT
+import com.intellimart.productservice.dto.RecommendationResponse; // NEW IMPORT: For recommendation endpoint
+import com.intellimart.productservice.dto.StockDecrementRequest;
+import com.intellimart.productservice.exception.InsufficientStockException;
+import com.intellimart.productservice.exception.ResourceNotFoundException;
 import com.intellimart.productservice.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,15 +16,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // NEW IMPORT: Add Slf4j for logging
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import jakarta.validation.Valid; // For @Valid annotation
-import jakarta.validation.constraints.Min; // For @Min annotation in @RequestParam
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -33,7 +34,7 @@ import java.util.List;
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
 @Tag(name = "Product Management", description = "APIs for managing products in IntelliMart")
-@Slf4j // Add Slf4j annotation
+@Slf4j
 public class ProductController {
 
     private final ProductService productService;
@@ -47,7 +48,7 @@ public class ProductController {
                          content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductResponse.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input or validation error",
                          content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Category not found", // Explicitly added for category error
+            @ApiResponse(responseCode = "404", description = "Category not found",
                          content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
             @ApiResponse(responseCode = "403", description = "Forbidden - only ADMIN can create products"),
@@ -58,7 +59,7 @@ public class ProductController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> createProduct(
             @Parameter(description = "Product data in JSON format", required = true)
-            @RequestPart("product") @Valid String productJson, // Added @Valid for productJson
+            @RequestPart("product") @Valid String productJson,
             @Parameter(description = "Optional image file for the product")
             @RequestPart(value = "image", required = false) MultipartFile imageFile) throws IOException {
 
@@ -70,11 +71,9 @@ public class ProductController {
             return new ResponseEntity<>(newProduct, HttpStatus.CREATED);
         } catch (ResourceNotFoundException e) {
             log.warn("Failed to create product: {}", e.getMessage());
-            // This is better handled by a @ControllerAdvice for consistency, but for direct handling:
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // Category not found
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (Exception e) {
             log.error("Error creating product: {}", e.getMessage(), e);
-            // Consider mapping specific exceptions to specific HTTP statuses
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -84,7 +83,7 @@ public class ProductController {
         description = "Retrieves a list of all products. Publicly accessible.",
         responses = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved list",
-                         content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductResponse.class, type = "array"))) // Added type array for list
+                         content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductResponse.class, type = "array")))
         }
     )
     @GetMapping
@@ -99,7 +98,7 @@ public class ProductController {
         description = "Retrieves a paginated list of all products. Publicly accessible.",
         responses = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated list",
-                         content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductResponse.class, type = "array", name = "ProductResponsePage"))) // Improve schema for Page
+                         content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductResponse.class, type = "array", name = "ProductResponsePage")))
         }
     )
     @GetMapping("/paginated")
@@ -143,7 +142,7 @@ public class ProductController {
         log.info("Received request to get filtered products: categoryId={}, minPrice={}, maxPrice={}, query={}, page={}, size={}, sortBy={}, sortDir={}",
                 categoryId, minPrice, maxPrice, query, page, size, sortBy, sortDir);
         Page<ProductResponse> products = productService.getFilteredProducts(
-                query, query, categoryId, minPrice, maxPrice, // Passing query for both name and description filter
+                query, query, categoryId, minPrice, maxPrice,
                 page, size, sortBy, sortDir);
         return ResponseEntity.ok(products);
     }
@@ -182,7 +181,7 @@ public class ProductController {
                          content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Unauthorized - authentication required"),
             @ApiResponse(responseCode = "403", description = "Forbidden - only ADMIN can update products"),
-            @ApiResponse(responseCode = "404", description = "Product or Category not found", // Updated description
+            @ApiResponse(responseCode = "404", description = "Product or Category not found",
                          content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "Internal Server Error - issue with image storage or unexpected error")
         }
@@ -193,7 +192,7 @@ public class ProductController {
             @Parameter(description = "ID of the product to update", required = true, example = "1")
             @PathVariable Long id,
             @Parameter(description = "Updated product data in JSON format", required = true)
-            @RequestPart("product") @Valid String productJson, // Added @Valid
+            @RequestPart("product") @Valid String productJson,
             @Parameter(description = "Optional new image file for the product")
             @RequestPart(value = "image", required = false) MultipartFile imageFile) throws IOException {
 
@@ -236,14 +235,13 @@ public class ProductController {
             return ResponseEntity.noContent().build();
         } catch (ResourceNotFoundException e) {
             log.warn("Product not found for deletion: {}. {}", id, e.getMessage());
-            throw e; // Let @ControllerAdvice handle this or return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            throw e;
         } catch (Exception e) {
             log.error("Error deleting product ID {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    // --- NEW ENDPOINT: Decrement Stock (for Order Service) ---
     @Operation(
         summary = "Decrement product stock",
         description = "Decrements the stock of a product by a specified quantity. Primarily used by Order Service. Requires INTERNAL or ADMIN role.",
@@ -259,10 +257,10 @@ public class ProductController {
         }
     )
     @PostMapping("/decrement-stock")
-    @PreAuthorize("hasAnyRole('ADMIN', 'INTERNAL')") // Assuming 'INTERNAL' role for microservice communication
+    @PreAuthorize("hasAnyRole('ADMIN', 'INTERNAL')")
     public ResponseEntity<Void> decrementStock(
             @Parameter(description = "Product ID and quantity to decrement", required = true)
-            @RequestBody @Valid StockDecrementRequest request) { // @Valid for DTO validation
+            @RequestBody @Valid StockDecrementRequest request) {
         log.info("Received request to decrement stock for product ID: {} by quantity: {}", request.getProductId(), request.getQuantity());
         try {
             productService.decrementStock(request);
@@ -273,14 +271,13 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (InsufficientStockException e) {
             log.warn("Stock decrement failed: Insufficient stock for product ID {}. {}", request.getProductId(), e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // Return 400 with no body or custom error body
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         } catch (Exception e) {
             log.error("Error decrementing stock for product ID {}: {}", request.getProductId(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    // --- NEW ENDPOINT: Increment Stock ---
     @Operation(
         summary = "Increment product stock",
         description = "Increments the stock of a product by a specified quantity. Requires INTERNAL or ADMIN role.",
@@ -296,12 +293,12 @@ public class ProductController {
         }
     )
     @PostMapping("/increment-stock/{productId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'INTERNAL')") // Assuming 'INTERNAL' role for microservice communication
+    @PreAuthorize("hasAnyRole('ADMIN', 'INTERNAL')")
     public ResponseEntity<Void> incrementStock(
             @Parameter(description = "ID of the product to increment stock for", required = true, example = "1")
             @PathVariable Long productId,
             @Parameter(description = "Quantity to increment by (must be at least 1)", required = true, example = "5")
-            @RequestParam @Min(value = 1, message = "Quantity must be at least 1") Integer quantity) { // @Min for validation
+            @RequestParam @Min(value = 1, message = "Quantity must be at least 1") Integer quantity) {
         log.info("Received request to increment stock for product ID: {} by quantity: {}", productId, quantity);
         try {
             productService.incrementStock(productId, quantity);
@@ -310,10 +307,32 @@ public class ProductController {
         } catch (ResourceNotFoundException e) {
             log.warn("Stock increment failed: Product not found for ID {}. {}", productId, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (Exception e) { // Catching general Exception for unexpected errors
+        } catch (Exception e) {
             log.error("Error incrementing stock for product ID {}: {}", productId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @Operation(
+            summary = "Get product recommendations",
+            description = "Retrieves a list of recommended products based on the given product. Accessible to all roles.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Successfully retrieved recommendations",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = RecommendationResponse.class, type = "array"))),
+                    @ApiResponse(responseCode = "404", description = "Product not found with the given ID (for which recommendations are requested)",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error - unexpected issue during recommendation generation or communication with order service",
+                            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+            }
+    )
+    @GetMapping("/{productId}/recommendations")
+    public ResponseEntity<List<RecommendationResponse>> getProductRecommendations(
+            @Parameter(description = "ID of the product for which to get recommendations", required = true, example = "1")
+            @PathVariable Long productId) {
+        log.info("Received request for recommendations for product ID: {}", productId);
+        List<RecommendationResponse> recommendations = productService.getProductRecommendations(productId);
+        log.info("Generated {} recommendations for product ID: {}", recommendations.size(), productId);
+        return ResponseEntity.ok(recommendations);
     }
 
     // Existing search endpoint (can be covered by /filter)
@@ -351,9 +370,6 @@ public class ProductController {
             @PathVariable Long categoryId) {
         log.info("Received request to get products by category ID: {}", categoryId);
         List<ProductResponse> products = productService.getProductsByCategoryId(categoryId);
-        // Note: productService.getProductsByCategoryId doesn't throw ResourceNotFound for category itself,
-        // it just returns an empty list if no products match. If you want 404 for non-existent category,
-        // you'd need to check categoryRepository.findById() in the service.
         return ResponseEntity.ok(products);
     }
 }

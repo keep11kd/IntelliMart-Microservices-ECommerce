@@ -1,5 +1,6 @@
 package com.intellimart.productservice.repository;
 
+import com.intellimart.productservice.entity.Category;
 import com.intellimart.productservice.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -27,6 +28,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> findByCategoryId(Long categoryId, Pageable pageable);
     Page<Product> findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String searchTerm, String searchTerm2, Pageable pageable);
 
+ // FIX: Changed parameter type from Long categoryId to Category category
+    List<Product> findByCategoryAndIdNot(Category category, Long excludeProductId);
     // --- NEW: Filtering by Price Range (using Spring Data JPA method names) ---
 
     /**

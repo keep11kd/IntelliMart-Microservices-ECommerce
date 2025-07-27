@@ -21,7 +21,7 @@ public class ProductClientFallback implements ProductClient {
     }
 
     @Override
-    public ResponseEntity<ProductResponse> getProductById(String productId) {
+    public ResponseEntity<ProductResponse> getProductById(Long productId) {
         log.error("Fallback activated: Could not retrieve product {} details. Cause: {}", productId, cause.getMessage());
         // Return a default/empty product response, or throw a specific exception if product details are critical
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(null);

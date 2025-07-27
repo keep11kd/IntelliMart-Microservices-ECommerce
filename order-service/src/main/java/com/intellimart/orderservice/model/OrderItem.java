@@ -25,7 +25,7 @@ public class OrderItem {
     private Order order; // Link to the parent Order
 
     @Column(nullable = false)
-    private String productId; // ID of the product from product-service (changed to String for consistency with userId)
+    private Long productId; // ID of the product from product-service (changed to String for consistency with userId)
 
     @Column(nullable = false)
     private Integer quantity;

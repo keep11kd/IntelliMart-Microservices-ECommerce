@@ -16,7 +16,7 @@ import jakarta.validation.constraints.NotNull;
 @Builder
 public class OrderItemRequest {
     @NotBlank(message = "Product ID cannot be empty")
-    private String productId;
+    private Long productId;
 
     @NotNull(message = "Quantity cannot be null")
     @Min(value = 1, message = "Quantity must be at least 1")

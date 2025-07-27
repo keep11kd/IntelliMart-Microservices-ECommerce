@@ -1,0 +1,5 @@
+Flask==2.3.3
+gunicorn==21.2.0
+# Add any other Python libraries your product-service code specifically uses here
+# For example, if you interact with MongoDB, you might add:
+# pymongo==4.6.0

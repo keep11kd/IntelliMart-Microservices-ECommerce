@@ -4,17 +4,34 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version> <relativePath/> </parent>
-    <groupId>com.intellimart</groupId>
+        <groupId>com.intellimart</groupId>
+        <artifactId>intellimart-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
     <artifactId>shopping-cart-service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>shopping-cart-service</name>
     <description>Shopping Cart Service for IntelliMart Microservices</description>
+    <!-- Removed redundant groupId, version, url, licenses, developers, scm as they are inherited from parent -->
+    <url/>
+    <licenses>
+        <license/>
+    </licenses>
+    <developers>
+        <developer/>
+    </developers>
+    <scm>
+        <connection/>
+        <developerConnection/>
+        <tag/>
+        <url/>
+    </scm>
 
     <properties>
-        <java.version>21</java.version> <spring-cloud.version>2023.0.1</spring-cloud.version> <springdoc-openapi-starter-webmvc-ui.version>2.5.0</springdoc-openapi-starter-webmvc-ui.version>
+        <!-- REMOVED: java.version, spring-cloud.version, lombok.version - now inherited from parent -->
+        <!-- KEPT: springdoc-openapi-starter-webmvc-ui.version as it's not managed by the parent -->
+        <springdoc-openapi-starter-webmvc-ui.version>2.5.0</springdoc-openapi-starter-webmvc-ui.version>
     </properties>
 
     <dependencies>
@@ -52,6 +69,8 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+            <scope>provided</scope> <!-- ADDED/ENSURED THIS SCOPE -->
+            <!-- Version inherited from parent's dependencyManagement -->
         </dependency>
 
         <dependency>
@@ -69,25 +88,16 @@
             <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
         </dependency>
 
-        </dependencies>
+    </dependencies>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-dependencies</artifactId>
-                <version>${spring-cloud.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <!-- REMOVED: Redundant dependencyManagement section, now managed by parent -->
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <!-- Version inherited from parent's pluginManagement -->
                 <configuration>
                     <excludes>
                         <exclude>
@@ -97,6 +107,7 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!-- REMOVED: Maven Compiler Plugin configuration, now managed by parent -->
         </plugins>
     </build>
 

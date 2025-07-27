@@ -4,32 +4,32 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.3</version>
-		<relativePath /> <!-- lookup parent from repository -->
+		<groupId>com.intellimart</groupId>
+		<artifactId>intellimart-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../pom.xml</relativePath>
 	</parent>
-	<groupId>com.intellimart</groupId>
+
 	<artifactId>auth-service</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
 	<name>auth-service</name>
 	<description>Auth Service for IntelliMart</description>
-	<url />
+	<!-- Removed redundant groupId, version, url, licenses, developers, scm as they are inherited from parent -->
+	<url/>
 	<licenses>
-		<license />
+		<license/>
 	</licenses>
 	<developers>
-		<developer />
+		<developer/>
 	</developers>
 	<scm>
-		<connection />
-		<developerConnection />
-		<tag />
-		<url />
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
 	</scm>
-	<properties>
-		<java.version>21</java.version>
-	</properties>
+
+	<!-- REMOVED: <properties> section, as java.version is now inherited from parent -->
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -51,12 +51,12 @@
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
-			<version>0.11.5</version>
+			<version>0.11.5</version> <!-- Keep explicit version if not managed by Spring Boot parent -->
 		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.5.0</version>
+			<version>2.5.0</version> <!-- Keep explicit version if not managed by Spring Boot parent -->
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
@@ -70,17 +70,6 @@
 			<version>0.11.5</version>
 			<scope>runtime</scope>
 		</dependency>
-		<!--	 Instead of runtime, let Maven use it for compile and runtime 
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-impl</artifactId>
-			<version>0.12.5</version>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-jackson</artifactId>
-			<version>0.12.5</version>
-		</dependency>-->
 
 		<dependency>
 			<groupId>com.mysql</groupId>
@@ -92,6 +81,13 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+			<scope>provided</scope> <!-- ADDED/ENSURED THIS SCOPE -->
+			<!-- Version inherited from parent's dependencyManagement -->
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -99,24 +95,9 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<!-- Version inherited from parent's pluginManagement -->
 			</plugin>
-			<!-- Add this Maven Compiler Plugin configuration -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<!-- Match the version from your build log, or use a recent one -->
-				<configuration>
-					<source>${java.version}</source>
-					<target>${java.version}</target>
-					<release>${java.version}</release> <!-- For Java 9+ -->
-					<compilerArgs>
-						<!-- Add this if you still get deprecated API warnings,
-						not strictly for this error -->
-						<arg>-Xlint:deprecation</arg>
-					</compilerArgs>
-				</configuration>
-			</plugin>
-			<!-- End of Maven Compiler Plugin configuration -->
+			<!-- REMOVED: Maven Compiler Plugin configuration, now managed by parent -->
 		</plugins>
 	</build>
 

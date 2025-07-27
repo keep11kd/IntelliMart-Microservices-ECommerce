@@ -82,6 +82,7 @@ public class OrderServiceImpl implements OrderService {
 
             try {
                 log.info("Calling product-service to get details for product ID: {}", itemRequest.getProductId());
+                // itemRequest.getProductId() is now Long, productClient.getProductById expects Long
                 ResponseEntity<ProductResponse> productResponse = productClient.getProductById(itemRequest.getProductId());
 
                 if (productResponse.getStatusCode() != HttpStatus.OK || productResponse.getBody() == null) {
@@ -96,8 +97,10 @@ public class OrderServiceImpl implements OrderService {
                             itemRequest.getProductId(), itemRequest.getPriceAtPurchase(), product.getPrice());
                 }
 
+                // itemRequest.getProductId() is now Long, StockDecrementRequest expects Long
                 StockDecrementRequest decrementRequest = new StockDecrementRequest(itemRequest.getProductId(), itemRequest.getQuantity());
                 log.info("Attempting to decrement stock for product ID: {} by quantity: {}", itemRequest.getProductId(), itemRequest.getQuantity());
+                // productClient.decrementStock expects Long, and itemRequest.getProductId() is Long
                 ResponseEntity<Void> decrementResponse = productClient.decrementStock(decrementRequest);
 
                 if (decrementResponse.getStatusCode() != HttpStatus.OK) {
@@ -126,7 +129,7 @@ public class OrderServiceImpl implements OrderService {
             totalAmount = totalAmount.add(itemTotalPrice);
 
             OrderItem orderItem = OrderItem.builder()
-                    .productId(itemRequest.getProductId())
+                    .productId(itemRequest.getProductId()) // itemRequest.getProductId() is now Long, OrderItem.productId is Long
                     .quantity(itemRequest.getQuantity())
                     .priceAtPurchase(itemRequest.getPriceAtPurchase())
                     .productName(product.getName())
@@ -152,7 +155,7 @@ public class OrderServiceImpl implements OrderService {
         // Publish Order Placed Event immediately after order creation (before payment might be confirmed)
         // This event signifies the order has been recorded in the system.
         publishOrderPlacedEvent(savedOrder);
-        
+
         return mapToOrderResponse(savedOrder);
     }
 
@@ -174,6 +177,7 @@ public class OrderServiceImpl implements OrderService {
         CartResponse cart;
         try {
             log.info("Calling shopping-cart-service to get cart for user ID: {}", userIdString);
+            // shoppingCartClient.getCartByUserId expects String, so userIdString is correct
             cart = shoppingCartClient.getCartByUserId(userIdString);
             log.info("Received cart for user ID: {}. Items count: {}", userIdString, cart != null ? cart.getItems().size() : 0);
         } catch (Exception e) {
@@ -195,6 +199,7 @@ public class OrderServiceImpl implements OrderService {
 
             try {
                 log.info("Calling product-service to get details for product ID: {}", cartItem.getProductId());
+                // cartItem.getProductId() is now Long, productClient.getProductById expects Long
                 ResponseEntity<ProductResponse> productResponse = productClient.getProductById(cartItem.getProductId());
 
                 if (productResponse.getStatusCode() != HttpStatus.OK || productResponse.getBody() == null) {
@@ -204,8 +209,10 @@ public class OrderServiceImpl implements OrderService {
                 product = productResponse.getBody();
                 log.info("Received product details for ID: {}. Name: {}, Stock: {}", product.getId(), product.getName(), product.getStock());
 
+                // cartItem.getProductId() is now Long, StockDecrementRequest expects Long
                 StockDecrementRequest decrementRequest = new StockDecrementRequest(cartItem.getProductId(), cartItem.getQuantity());
                 log.info("Attempting to decrement stock for product ID: {} by quantity: {}", cartItem.getProductId(), cartItem.getQuantity());
+                // productClient.decrementStock expects Long, and cartItem.getProductId() is Long
                 ResponseEntity<Void> decrementResponse = productClient.decrementStock(decrementRequest);
 
                 if (decrementResponse.getStatusCode() != HttpStatus.OK) {
@@ -234,7 +241,7 @@ public class OrderServiceImpl implements OrderService {
             totalAmount = totalAmount.add(itemTotalPrice);
 
             OrderItem orderItem = OrderItem.builder()
-                    .productId(cartItem.getProductId())
+                    .productId(cartItem.getProductId()) // cartItem.getProductId() is now Long, OrderItem.productId is Long
                     .quantity(cartItem.getQuantity())
                     .priceAtPurchase(cartItem.getPrice())
                     .productName(product.getName())
@@ -259,7 +266,8 @@ public class OrderServiceImpl implements OrderService {
 
         try {
             log.info("Attempting to clear cart for user ID: {}", userIdString);
-            shoppingCartClient.clearCartByUserId(userIdString);
+            // shoppingCartClient.clearCartByUserId expects String, so convert Long productId to String
+            shoppingCartClient.clearCartByUserId(String.valueOf(userId)); // CONVERTED userId to String
             log.info("Cart cleared successfully for user ID: {}", userIdString);
         } catch (Exception e) {
             log.warn("Failed to clear cart for user ID: {}. This might require manual cleanup or a dedicated retry mechanism. Error: {}", userIdString, e.getMessage());
@@ -311,13 +319,12 @@ public class OrderServiceImpl implements OrderService {
      * @param productId The ID of the product to search for within order items.
      * @return A list of OrderResponseForProductService objects.
      */
-    @Override // <--- Add @Override here
-    public List<OrderResponseForProductService> findOrdersByProductId(Long productId) { // <--- Corrected method name
+    @Override
+    public List<OrderResponseForProductService> findOrdersByProductId(Long productId) {
         log.info("Fetching orders containing product ID: {}", productId);
 
         // Find all OrderItems that contain the given productId
-        // Assuming OrderItem.productId is Long. If it's String, change findByProductId(Long) to findByProductId(String)
-        // and convert productId to String here if necessary.
+        // OrderItem.productId is now Long, so findByProductId(Long) is correct
         List<OrderItem> orderItems = orderItemRepository.findByProductId(productId);
 
         // Get distinct Orders from these OrderItems
@@ -559,7 +566,7 @@ public class OrderServiceImpl implements OrderService {
     private void publishOrderPlacedEvent(Order order) {
         List<OrderItemEvent> itemEvents = order.getOrderItems().stream()
                 .map(item -> OrderItemEvent.builder()
-                        .productId(Long.valueOf(item.getProductId())) // Assuming productId is String in OrderItem and needs conversion
+                        .productId(item.getProductId()) // REMOVED Long.valueOf()
                         .productName(item.getProductName())
                         .quantity(item.getQuantity())
                         .priceAtPurchase(item.getPriceAtPurchase())
@@ -614,7 +621,7 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemResponse mapToOrderItemResponse(OrderItem orderItem) {
         return OrderItemResponse.builder()
                 .id(orderItem.getId())
-                .productId(orderItem.getProductId())
+                .productId(orderItem.getProductId()) // orderItem.getProductId() is now Long, OrderItemResponse.productId should be Long
                 .quantity(orderItem.getQuantity())
                 .priceAtPurchase(orderItem.getPriceAtPurchase())
                 .productName(orderItem.getProductName())
@@ -646,7 +653,7 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemResponseForProductService mapToOrderItemResponseForProductService(OrderItem orderItem) {
         return OrderItemResponseForProductService.builder()
                 .id(orderItem.getId())
-                .productId(Long.valueOf(orderItem.getProductId())) // FIX: Convert String productId to Long
+                .productId(orderItem.getProductId()) // REMOVED Long.valueOf()
                 .productName(orderItem.getProductName()) // Include product name
                 .quantity(orderItem.getQuantity())
                 .priceAtPurchase(orderItem.getPriceAtPurchase())

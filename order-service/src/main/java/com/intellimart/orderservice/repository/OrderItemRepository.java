@@ -28,7 +28,7 @@ interface OrderItemSummary {
     BigDecimal getPriceAtPurchase();
     // Example of accessing a field from the associated Order entity
     String getOrder_OrderNumber(); // Note: This uses the underscore convention for nested properties
-    LocalDateTime getOrder_OrderDate();
+    LocalDateTime getOrder_CreatedAt(); // CORRECTED: Changed to match Order entity's 'createdAt' field
 }
 
 interface ProductSalesStats {
@@ -79,7 +79,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
      * @param userId The ID of the user who placed the order.
      * @return A list of OrderItem entities associated with the given user.
      */
-    List<OrderItem> findByOrder_UserId(String userId);
+    List<OrderItem> findByOrder_UserId(Long userId);
 
     /**
      * Finds order items where the quantity is greater than a specified value.
@@ -103,7 +103,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
      * @param endDate The end date of the order (inclusive).
      * @return A list of OrderItem entities from orders placed within the date range.
      */
-    List<OrderItem> findByOrder_OrderDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+    List<OrderItem> findByOrder_CreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate); // CORRECTED: Changed to match Order entity's 'createdAt' field
 
     /**
      * Finds order items associated with orders of a specific status.
@@ -149,7 +149,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
      */
     @Query("SELECT oi.id as id, oi.productId as productId, oi.productName as productName, " +
            "oi.quantity as quantity, oi.priceAtPurchase as priceAtPurchase, " +
-           "o.orderNumber as order_OrderNumber, o.orderDate as order_OrderDate " +
+           "o.orderNumber as order_OrderNumber, o.createdAt as order_CreatedAt " + // CORRECTED: Changed to match Order entity's 'createdAt' field
            "FROM OrderItem oi JOIN oi.order o WHERE o.id = :orderId")
     List<OrderItemSummary> findOrderItemSummariesByOrderId(@Param("orderId") Long orderId);
 

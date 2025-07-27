@@ -18,5 +18,5 @@ public interface OrderClient {
      * @return A list of orders containing the specified product.
      */
     @GetMapping("/api/orders/searchByProductId") // This endpoint needs to be created in OrderService
-    List<OrderResponseForProductService> getOrdersByProductId(@RequestParam Long productId);
+    List<OrderResponseForProductService> getOrdersByProductId(@RequestParam ("productId") Long productId);
 }

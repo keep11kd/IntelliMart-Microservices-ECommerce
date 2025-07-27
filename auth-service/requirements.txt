@@ -1,0 +1,6 @@
+Flask==2.3.3
+gunicorn==21.2.0
+# Add any other Python libraries your auth-service code specifically uses here
+# For example, if you connect to a database, you'd add its driver:
+# pymongo==4.6.0
+# psycopg2-binary==2.9.9

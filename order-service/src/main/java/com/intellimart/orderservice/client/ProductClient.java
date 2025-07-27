@@ -26,7 +26,7 @@ public interface ProductClient {
      * @return ProductResponse containing product details.
      */
     @GetMapping("/api/products/{productId}")
-    ResponseEntity<ProductResponse> getProductById(@PathVariable("productId") String productId);
+    ResponseEntity<ProductResponse> getProductById(@PathVariable("productId") Long productId);
 
     /**
      * Decrements the stock for a given product.

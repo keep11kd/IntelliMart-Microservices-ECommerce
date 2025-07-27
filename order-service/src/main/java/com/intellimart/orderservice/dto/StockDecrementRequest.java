@@ -15,7 +15,7 @@ import jakarta.validation.constraints.NotNull;
 @Builder
 public class StockDecrementRequest {
     @NotBlank(message = "Product ID cannot be empty")
-    private String productId;
+    private Long productId;
 
     @NotNull(message = "Quantity to decrement cannot be null")
     @Min(value = 1, message = "Quantity to decrement must be at least 1")

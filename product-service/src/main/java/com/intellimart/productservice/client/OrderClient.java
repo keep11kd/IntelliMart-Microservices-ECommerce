@@ -7,7 +7,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
-@FeignClient(name = "order-service", url = "${application.config.order-service.url}") // IMPORTANT: Configure URL in application.properties
+// CORRECTED: Removed 'url' attribute. Feign will now use Eureka for discovery.
+@FeignClient(name = "order-service")
 public interface OrderClient {
 
     /**

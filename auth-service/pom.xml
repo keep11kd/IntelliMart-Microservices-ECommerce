@@ -98,6 +98,7 @@
 				<!-- Version inherited from parent's pluginManagement -->
 			</plugin>
 			<!-- REMOVED: Maven Compiler Plugin configuration, now managed by parent -->
+			
 		</plugins>
 	</build>
 

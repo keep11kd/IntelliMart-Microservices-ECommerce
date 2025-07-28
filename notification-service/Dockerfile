@@ -3,7 +3,7 @@
 
     # Set the working directory inside the container
     WORKDIR /app
-
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
     # Copy the built JAR file from your Maven target directory into the container's /app directory.
     COPY target/notification-service-0.0.1-SNAPSHOT.jar app.jar
 

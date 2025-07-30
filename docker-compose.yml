@@ -33,9 +33,9 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: intelimart_auth_db # Initial database for auth-service
       # Add other databases here to be created on startup, or rely on Spring Boot's ddl-auto
-      MYSQL_ADDITIONAL_DATABASES: "intellimart_product_db,intellimart_cart_db,intellimart_order_db"
-      MYSQL_USER: root # Added for clarity, though root password is used for root user
-      MYSQL_PASSWORD: root # Added for clarity
+      MYSQL_ADDITIONAL_DATABASES: "intelimart_product_db,intelimart_cart_db,intelimart_order_db"
+      # MYSQL_USER: root # Added for clarity, though root password is used for root user
+      # MYSQL_PASSWORD: root # Added for clarity
     ports:
       - "3306:3306"
     volumes:
@@ -48,10 +48,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s # Give MySQL enough time to initialize
 
-  # RabbitMQ Service
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:3.12-management
     container_name: intellimart-rabbitmq
     ports:
       - "5672:5672" # AMQP protocol port
@@ -61,11 +61,15 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     networks:
       - intellimart-network
+    #volumes:
+     # - rabbitmq_data:/var/lib/rabbitmq:rw # ✅ add this line
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+
 
   # Eureka Server Service
   eureka-server:
@@ -99,7 +103,7 @@ services:
       - "8089:8089"
     environment:
       <<: [*common-env, *db-env, *jwt-env-values] # Use the actual JWT values
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_auth_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intellimart_auth_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       # Removed redundant APPLICATION_SECURITY_JWT_SECRET_KEY, etc. as JWT_SECRET is now directly used by JwtUtil
       # If your application.properties also uses APPLICATION_SECURITY_JWT_*, you might need to keep them
       # or adjust your Spring Boot config to use the direct JWT_SECRET env vars.
@@ -260,6 +264,7 @@ services:
 
 volumes:
   mysql_data: # Named volume for MySQL data persistence
+  #rabbitmq_data:
 
 networks:
   intellimart-network:

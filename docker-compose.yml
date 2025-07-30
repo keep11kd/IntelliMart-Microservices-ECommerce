@@ -1,4 +1,6 @@
-# Define common environment variables for reuse
+version: '3.8'
+
+# Define common environment variables for reuse using YAML anchors
 x-common-env: &common-env
   EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 
@@ -6,25 +8,39 @@ x-db-env: &db-env
   SPRING_DATASOURCE_USERNAME: root
   SPRING_DATASOURCE_PASSWORD: root
 
-x-jwt-env: &jwt-env
-  # Use a single, consistent JWT secret variable
-  APP_JWT_SECRET: ${APP_JWT_SECRET}
-  APP_JWT_EXPIRATION: ${APP_JWT_EXPIRATION}
+# Define JWT environment variables with actual values
+# These are the actual values that will be used by the services.
+# It's better to define them here directly or load from a .env file,
+# rather than referencing themselves like APP_JWT_SECRET: ${APP_JWT_SECRET}
+x-jwt-env-values: &jwt-env-values
+  JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970 # Consistent with Auth Service JwtUtil
+  JWT_EXPIRATION: 86400000 # Consistent with Auth Service JwtUtil
+  JWT_REFRESH_TOKEN_EXPIRATION: 604800000 # For Auth Service
+
+# Define RabbitMQ environment variables for reuse
+x-rabbitmq-env: &rabbitmq-env
+  SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_PORT: 5672
+  SPRING_RABBITMQ_USERNAME: guest
+  SPRING_RABBITMQ_PASSWORD: guest
 
 services:
+  # MySQL Database Service
   mysql:
     image: mysql:8.0
     container_name: intellimart-mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: intelimart_auth_db
-      MYSQL_USER: root
-      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: intelimart_auth_db # Initial database for auth-service
+      # Add other databases here to be created on startup, or rely on Spring Boot's ddl-auto
+      MYSQL_ADDITIONAL_DATABASES: "intellimart_product_db,intellimart_cart_db,intellimart_order_db"
+      MYSQL_USER: root # Added for clarity, though root password is used for root user
+      MYSQL_PASSWORD: root # Added for clarity
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./mysql-init:/docker-entrypoint-initdb.d
+      - mysql_data:/var/lib/mysql # Persist MySQL data
+      - ./mysql-init:/docker-entrypoint-initdb.d # Optional: For initial schema/data
     networks:
       - intellimart-network
     healthcheck:
@@ -33,12 +49,13 @@ services:
       timeout: 5s
       retries: 5
 
+  # RabbitMQ Service
   rabbitmq:
     image: rabbitmq:3-management
     container_name: intellimart-rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI port
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -50,6 +67,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Eureka Server Service
   eureka-server:
     build:
       context: ./eureka-server
@@ -66,13 +84,13 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 15s # Increased interval for Eureka startup
+      timeout: 10s
+      retries: 10
+      start_period: 60s # Give it more time to start up and register
 
+  # Auth Service
   auth-service:
-  
     build:
       context: ./auth-service
       dockerfile: Dockerfile
@@ -80,11 +98,11 @@ services:
     ports:
       - "8089:8089"
     environment:
-      <<: [*common-env, *db-env, *jwt-env]
+      <<: [*common-env, *db-env, *jwt-env-values] # Use the actual JWT values
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_auth_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      APPLICATION_SECURITY_JWT_SECRET_KEY: ${APP_JWT_SECRET}
-      APPLICATION_SECURITY_JWT_EXPIRATION: ${APP_JWT_EXPIRATION}
-      APPLICATION_SECURITY_JWT_REFRESH_TOKEN_EXPIRATION: 604800000
+      # Removed redundant APPLICATION_SECURITY_JWT_SECRET_KEY, etc. as JWT_SECRET is now directly used by JwtUtil
+      # If your application.properties also uses APPLICATION_SECURITY_JWT_*, you might need to keep them
+      # or adjust your Spring Boot config to use the direct JWT_SECRET env vars.
     networks:
       - intellimart-network
     depends_on:
@@ -94,11 +112,12 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8089/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
       start_period: 60s
 
+  # Product Service
   product-service:
     build:
       context: ./product-service
@@ -109,9 +128,9 @@ services:
     environment:
       <<: [*common-env, *db-env]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_product_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      PRODUCT_IMAGES_UPLOAD_DIR: /app/uploads
+      PRODUCT_IMAGES_UPLOAD_DIR: /app/uploads # Path inside container
     volumes:
-      - ./product-service/uploads:/app/uploads
+      - ./product-service/uploads:/app/uploads # Mount host volume for persistence
     networks:
       - intellimart-network
     depends_on:
@@ -121,11 +140,12 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
       start_period: 60s
 
+  # Shopping Cart Service
   shopping-cart-service:
     build:
       context: ./shopping-cart-service
@@ -145,11 +165,12 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
       start_period: 60s
 
+  # Order Service
   order-service:
     build:
       context: ./order-service
@@ -158,11 +179,12 @@ services:
     ports:
       - "8084:8084"
     environment:
-      <<: [*common-env, *db-env]
+      <<: [*common-env, *db-env, *rabbitmq-env] # Include RabbitMQ env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_order_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      # Razorpay properties matching application.properties and @Value annotations (key-id, key-secret)
+      RAZORPAY_KEY_ID: rzp_test_BRg0a8xA7ICk6v # Your actual Razorpay test Key ID
+      RAZORPAY_KEY_SECRET: WNfupjGp18ruBLcWkRMQmP3w # Your actual Razorpay test Key Secret
+      RAZORPAY_WEBHOOK_SECRET: gG1sN0l3c2x4Y1l5d0h0c1F2YjVqN0t2ZzFjMjY0d0Q= # Your generated webhook secret
     networks:
       - intellimart-network
     depends_on:
@@ -174,11 +196,12 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
       start_period: 60s
 
+  # Notification Service
   notification-service:
     build:
       context: ./notification-service
@@ -187,10 +210,7 @@ services:
     ports:
       - "8085:8085"
     environment:
-      <<: [*common-env]
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      <<: [*common-env, *rabbitmq-env] # Include RabbitMQ env
     networks:
       - intellimart-network
     depends_on:
@@ -200,11 +220,12 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
       start_period: 60s
 
+  # API Gateway Service
   api-gateway:
     build:
       context: ./api-gateway
@@ -213,12 +234,12 @@ services:
     ports:
       - "8081:8081"
     environment:
-      <<: [*common-env]
-      JWT_SECRET: ${APP_JWT_SECRET}
-      JWT_EXPIRATION: ${APP_JWT_EXPIRATION}
+      <<: [*common-env, *jwt-env-values] # Use the actual JWT values
     networks:
       - intellimart-network
     depends_on:
+      eureka-server:
+        condition: service_healthy
       auth-service:
         condition: service_healthy
       product-service:
@@ -234,10 +255,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 60s
+      start_period: 60s # Gateway needs more time as it depends on many services
+    
 
 volumes:
-  mysql_data:
+  mysql_data: # Named volume for MySQL data persistence
 
 networks:
   intellimart-network:

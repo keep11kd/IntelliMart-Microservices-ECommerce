@@ -1,20 +1,30 @@
-version: '3.8'
+# Define common environment variables for reuse
+x-common-env: &common-env
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+
+x-db-env: &db-env
+  SPRING_DATASOURCE_USERNAME: root
+  SPRING_DATASOURCE_PASSWORD: root
+
+x-jwt-env: &jwt-env
+  # Use a single, consistent JWT secret variable
+  APP_JWT_SECRET: ${APP_JWT_SECRET}
+  APP_JWT_EXPIRATION: ${APP_JWT_EXPIRATION}
 
 services:
-  # MySQL Database Service
   mysql:
     image: mysql:8.0
     container_name: intellimart-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root # This is the correct way to set the root password
-      MYSQL_DATABASE: intelimart_auth_db # Create initial databases
-      # You might want to add other databases here if they are not created by Spring Boot's ddl-auto
-      # MYSQL_ADDITIONAL_DATABASES: "intellimart_product_db,intellimart_cart_db,intellimart_order_db"
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: intelimart_auth_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql # Persist MySQL data
-      - ./mysql-init:/docker-entrypoint-initdb.d # Optional: For initial schema/data
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
     networks:
       - intellimart-network
     healthcheck:
@@ -23,13 +33,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # RabbitMQ Service
   rabbitmq:
     image: rabbitmq:3-management
     container_name: intellimart-rabbitmq
     ports:
-      - "5672:5672" # AMQP protocol port
-      - "15672:15672" # Management UI port
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -41,10 +50,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Eureka Server Service
   eureka-server:
     build:
-      context: ./eureka-server # Path to the Eureka Server module
+      context: ./eureka-server
       dockerfile: Dockerfile
     container_name: intellimart-eureka-server
     ports:
@@ -52,34 +60,30 @@ services:
     networks:
       - intellimart-network
     depends_on:
-      mysql: # Added dependency on mysql as it's a core service
+      mysql:
         condition: service_healthy
-      rabbitmq: # Added dependency on rabbitmq as it's a core service
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
-      interval: 15s # Increased interval
-      timeout: 10s # Increased timeout
-      retries: 10
-      start_period: 60s # Give it time to start up
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-  # Auth Service
   auth-service:
     build:
-      context: ./auth-service # Path to the Auth Service module
+      context: ./auth-service
       dockerfile: Dockerfile
     container_name: intellimart-auth-service
     ports:
       - "8089:8089"
     environment:
+      <<: [*common-env, *db-env, *jwt-env]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_auth_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      # Corrected JWT properties to match JwtUtil's @Value annotations exactly
-      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-      JWT_EXPIRATION: 86400000
-      JWT_REFRESH_TOKEN_EXPIRATION: 604800000 # Assuming JwtUtil might also use this directly
+      APPLICATION_SECURITY_JWT_SECRET_KEY: ${APP_JWT_SECRET}
+      APPLICATION_SECURITY_JWT_EXPIRATION: ${APP_JWT_EXPIRATION}
+      APPLICATION_SECURITY_JWT_REFRESH_TOKEN_EXPIRATION: 604800000
     networks:
       - intellimart-network
     depends_on:
@@ -89,12 +93,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8089/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 60s
 
-  # Product Service
   product-service:
     build:
       context: ./product-service
@@ -103,13 +106,11 @@ services:
     ports:
       - "8082:8082"
     environment:
+      <<: [*common-env, *db-env]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_product_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      PRODUCT_IMAGES_UPLOAD_DIR: /app/uploads # Path inside container
+      PRODUCT_IMAGES_UPLOAD_DIR: /app/uploads
     volumes:
-      - ./product-service/uploads:/app/uploads # Mount host volume for persistence
+      - ./product-service/uploads:/app/uploads
     networks:
       - intellimart-network
     depends_on:
@@ -119,12 +120,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 60s
 
-  # Shopping Cart Service
   shopping-cart-service:
     build:
       context: ./shopping-cart-service
@@ -133,10 +133,8 @@ services:
     ports:
       - "8083:8083"
     environment:
+      <<: [*common-env, *db-env]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_cart_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     networks:
       - intellimart-network
     depends_on:
@@ -146,12 +144,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 60s
 
-  # Order Service
   order-service:
     build:
       context: ./order-service
@@ -160,17 +157,11 @@ services:
     ports:
       - "8084:8084"
     environment:
+      <<: [*common-env, *db-env]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/intelimart_order_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672 # Added missing RabbitMQ port
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
-      # Razorpay properties for Order Service
-      RAZORPAY_KEY_ID: rzp_test_BRg0a8xA7ICk6v # Replace with your actual Razorpay test Key ID
-      RAZORPAY_KEY_SECRET: WNfupjGp18ruBLcWkRMQmP3w # Replace with your actual Razorpay test Key Secret
     networks:
       - intellimart-network
     depends_on:
@@ -182,12 +173,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 60s
 
-  # Notification Service
   notification-service:
     build:
       context: ./notification-service
@@ -196,7 +186,7 @@ services:
     ports:
       - "8085:8085"
     environment:
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      <<: [*common-env]
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
@@ -209,12 +199,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 60s
 
-  # API Gateway Service
   api-gateway:
     build:
       context: ./api-gateway
@@ -223,17 +212,13 @@ services:
     ports:
       - "8081:8081"
     environment:
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      # Pass JWT properties as environment variables to API Gateway
-      # These should match what API Gateway's code expects (e.g., if it uses @Value("${jwt.secret}"))
-      JWT_SECRET: YVMzYyFxUjhsTWJ6WHk3MWVMKm9ARzUhaE5wMlVkWGU=
-      JWT_EXPIRATION: 36000000
+      <<: [*common-env]
+      JWT_SECRET: ${APP_JWT_SECRET}
+      JWT_EXPIRATION: ${APP_JWT_EXPIRATION}
     networks:
       - intellimart-network
     depends_on:
-      eureka-server:
-        condition: service_healthy
-      auth-service: # Gateway depends on other services being up for routing
+      auth-service:
         condition: service_healthy
       product-service:
         condition: service_healthy
@@ -248,9 +233,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
 
 volumes:
-  mysql_data: # Named volume for MySQL data persistence
+  mysql_data:
 
 networks:
   intellimart-network:

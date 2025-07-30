@@ -22,11 +22,11 @@ public class JwtUtil {
     // This value will be read from application.properties.
     // Make sure it's at least 256-bit (32 characters base64 encoded, or 44 characters for 256-bit)
     // You can generate one online, e.g., using: System.out.println(Keys.secretKeyFor(SignatureAlgorithm.HS256).getEncoded().length * 8);
-    @Value("${jwt.secret}")
+	@Value("${application.security.jwt.secret-key}")
     private String SECRET_KEY;
 
     // Expiration time for JWT tokens (e.g., 10 hours in milliseconds)
-    @Value("${jwt.expiration}")
+	@Value("${application.security.jwt.expiration}")
     private long EXPIRATION_TIME; // In milliseconds, e.g., 36000000L for 10 hours
 
     // Retrieve signing key

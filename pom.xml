@@ -13,8 +13,10 @@
 
 	<properties>
 		<java.version>17</java.version>
-		<spring-boot.version>3.5.3</spring-boot.version>
-		<spring-cloud.version>2025.0.0</spring-cloud.version>
+		<!-- UPDATED: Use a stable and compatible Spring Boot version -->
+		<spring-boot.version>3.2.5</spring-boot.version>
+		<!-- UPDATED: Use a stable and compatible Spring Cloud version for Spring Boot 3.2.x -->
+		<spring-cloud.version>2023.0.1</spring-cloud.version>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<lombok.version>1.18.30</lombok.version>

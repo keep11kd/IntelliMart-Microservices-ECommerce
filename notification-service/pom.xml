@@ -29,8 +29,6 @@
         <url/>
     </scm>
 
-    <!-- REMOVED: Redundant commented-out properties, they are inherited from the parent -->
-
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -49,8 +47,7 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-            <scope>provided</scope> <!-- ADDED/ENSURED THIS SCOPE -->
-            <!-- Version will be inherited from parent's dependencyManagement -->
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -60,24 +57,23 @@
         <dependency>
             <groupId>org.springframework.amqp</groupId>
             <artifactId>spring-rabbit-test</artifactId>
+            <!-- ADDED: Explicitly set version to match Spring Boot parent -->
+            <version>${spring-boot.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <!-- REMOVED: Redundant commented-out dependencyManagement section, it's inherited from the parent -->
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <!-- Version will be inherited from parent's pluginManagement -->
-                <!-- REMOVED: <configuration> block, as it's now managed by parent -->
+                <!-- Version and configuration inherited from parent's pluginManagement -->
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <!-- Version will be inherited from parent's pluginManagement -->
+                <!-- Version inherited from parent's pluginManagement -->
                 <configuration>
                     <excludes>
                         <exclude>

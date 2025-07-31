@@ -13,22 +13,24 @@
 	<artifactId>auth-service</artifactId>
 	<name>auth-service</name>
 	<description>Auth Service for IntelliMart</description>
-	<!-- Removed redundant groupId, version, url, licenses, developers, scm as they are inherited from parent -->
-	<url/>
+	<!-- Removed redundant groupId, version, url, licenses, developers, scm as
+	they are inherited from parent -->
+	<url />
 	<licenses>
-		<license/>
+		<license />
 	</licenses>
 	<developers>
-		<developer/>
+		<developer />
 	</developers>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection />
+		<developerConnection />
+		<tag />
+		<url />
 	</scm>
 
-	<!-- REMOVED: <properties> section, as java.version is now inherited from parent -->
+	<!-- REMOVED: <properties> section, as java.version is now inherited from
+	parent -->
 
 	<dependencies>
 		<dependency>
@@ -44,6 +46,12 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
@@ -51,12 +59,14 @@
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
-			<version>0.11.5</version> <!-- Keep explicit version if not managed by Spring Boot parent -->
+			<version>0.11.5</version> <!-- Keep explicit version if not managed
+			by Spring Boot parent -->
 		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.5.0</version> <!-- Keep explicit version if not managed by Spring Boot parent -->
+			<version>2.5.0</version> <!-- Keep explicit version if not managed by
+			Spring Boot parent -->
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
@@ -97,8 +107,9 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<!-- Version inherited from parent's pluginManagement -->
 			</plugin>
-			<!-- REMOVED: Maven Compiler Plugin configuration, now managed by parent -->
-			
+			<!-- REMOVED: Maven Compiler Plugin configuration, now managed by
+			parent -->
+
 		</plugins>
 	</build>
 

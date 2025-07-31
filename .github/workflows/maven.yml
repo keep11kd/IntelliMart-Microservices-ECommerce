@@ -38,4 +38,5 @@ jobs:
       # 🧪 Step 4: Run Maven build and tests only for 'auth-service' module
       - name: Build and Test Auth Service
         working-directory: auth-service  # 👣 Navigate into the subfolder for this module
-        run: mvn clean install           # 🛠️ Build and test (unit tests must pass or job fails)
+        run: mvn clean install -Dspring.profiles.active=test
+          # 🛠️ Build and test (unit tests must pass or job fails)

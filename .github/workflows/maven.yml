@@ -1,0 +1,31 @@
+    name: Java CI with Maven # Name of the workflow
+
+    on:
+      push:
+        branches: [ "main" ] # Triggers the workflow on push to the main branch
+
+    jobs:
+      build-and-test:
+        runs-on: ubuntu-latest # Specifies the runner environment (a fresh Ubuntu VM)
+
+        steps:
+        - uses: actions/checkout@v4 # Checks out your repository code
+          with:
+            fetch-depth: 0 # Fetches all history for all branches and tags.
+
+        - name: Set up JDK 17 # Sets up the Java Development Kit
+          uses: actions/setup-java@v4
+          with:
+            java-version: '17' # Specify the Java version your project uses
+            distribution: 'temurin' # Recommended distribution for OpenJDK
+
+        - name: Build and Test Auth Service # Runs the Maven build and tests for auth-service
+          # This command navigates into the auth-service directory and then runs Maven.
+          # If your 'auth-service' is a sub-module of a multi-module project,
+          # and you want to build and test only 'auth-service', this is correct.
+          # If you want to build the entire multi-module project and run all tests,
+          # you would use `mvn clean install` from the root directory.
+          run: |
+            cd auth-service # Navigate to the auth-service directory
+            mvn clean install # Clean build and run tests for auth-service
+    

@@ -61,8 +61,8 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     networks:
       - intellimart-network
-    #volumes:
-     # - rabbitmq_data:/var/lib/rabbitmq:rw # ✅ add this line
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq:rw
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -264,7 +264,7 @@ services:
 
 volumes:
   mysql_data: # Named volume for MySQL data persistence
-  #rabbitmq_data:
+  rabbitmq_data:
 
 networks:
   intellimart-network:

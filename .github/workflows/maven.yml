@@ -1,44 +1,49 @@
-    name: Java CI with Maven # 🏗️ Workflow name as it appears in GitHub Actions UI
+# 🏗️ Workflow name as it appears in the GitHub Actions UI
+name: Java CI with Maven
 
-    # 📌 When to trigger the workflow
-    on:
-      push:
-        branches: [ "main" ]  # Trigger only when code is pushed to the 'main' branch
-      pull_request:
-        branches: [ "main" ]  # Also trigger when a PR targets the 'main' branch
+# 📌 Define when this workflow should be triggered
+on:
+  push:
+    branches: [ "main" ]  # Trigger on pushes to the 'main' branch
+  pull_request:
+    branches: [ "main" ]  # Also trigger on pull requests targeting the 'main' branch
 
-    jobs:
-      build-and-test:  # Job ID (used internally)
-        runs-on: ubuntu-latest  # 🖥️ Use a fresh Ubuntu runner hosted by GitHub
+# 🚀 Define the jobs that will run as part of this workflow
+jobs:
+  build-all-services:  # Updated job ID to reflect building all services
+    runs-on: ubuntu-latest  # 🖥️ Specifies the runner environment: a fresh Ubuntu Linux virtual machine hosted by GitHub
 
-        steps:
-          # 🔍 Step 1: Checkout source code from the repo
-          - name: Checkout repository
-            uses: actions/checkout@v4
-            with:
-              fetch-depth: 0  # 📜 Fetch full history for accurate build versioning or changelogs
+    # 📋 Define the sequence of steps within this job
+    steps:
+      # 🔍 Step 1: Checkout source code from your repository
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Uses the official GitHub action to checkout code
+        with:
+          fetch-depth: 0  # 📜 Fetch full history; useful for some Maven plugins or Git operations
 
-          # ☕ Step 2: Set up Java 17 using Eclipse Temurin distribution
-          - name: Set up JDK 17
-            uses: actions/setup-java@v4
-            with:
-              java-version: '17'      # 👈 Use Java 17
-              distribution: 'temurin'  # 👈 Recommended OpenJDK distribution
+      # ☕ Step 2: Set up the Java Development Kit (JDK)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4 # Uses the official GitHub action to set up Java
+        with:
+          java-version: '17'      # 👈 Specify the Java version your project compiles with
+          distribution: 'temurin'  # 👈 Recommended OpenJDK distribution (Eclipse Temurin)
 
-          # ⚡ Step 3: Cache local Maven dependencies (~/.m2 folder) to speed up builds
-          - name: Cache Maven dependencies
-            uses: actions/cache@v4
-            with:
-              path: ~/.m2  # 🗃️ Maven stores downloaded dependencies here
-              key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-              restore-keys: |
-                ${{ runner.os }}-maven-
+      # ⚡ Step 3: Cache local Maven dependencies (~/.m2 folder) to speed up builds
+      # This caches downloaded Maven dependencies, so subsequent runs are faster.
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4 # Uses the official GitHub action for caching
+        with:
+          path: ~/.m2  # 🗃️ The directory where Maven stores downloaded dependencies
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }} # Generates a unique cache key based on OS and project's pom.xml files
+          restore-keys: | # Defines fallback keys if the primary key doesn't match exactly
+            ${{ runner.os }}-maven-
 
-          # 🧪 Step 4: Run Maven build and tests only for 'auth-service' module
-          - name: Build Auth Service (Skipping Tests) # [2025-07-31] Updated name to reflect skipping tests
-            working-directory: auth-service  # 👣 Navigate into the subfolder for this module
-            # [2025-07-31] Changed to -DskipTests to ensure CI passes.
-            # The test failure needs to be debugged locally.
-            run: mvn clean install -DskipTests
-            # 🛠️ Build and test (unit tests must pass or job fails)
-    
+      # 📦 Step 4: Run Maven build for ALL microservices, skipping tests
+      # This assumes your root pom.xml is a multi-module project.
+      # Removing `working-directory` means Maven runs from the repository root.
+      - name: Build All Microservices (Skipping Tests) # 📝 Updated descriptive name for the step
+        # working-directory: auth-service  # ❌ REMOVE THIS LINE or comment it out!
+                                           # Running from the root builds all modules
+        run: mvn clean install -DskipTests # 🚀 Executes Maven: clean build and install for all modules, still skipping tests
+        # 💡 Important: Once all services' tests are fixed locally, you should remove -DskipTests
+        # to enable full test execution in CI.

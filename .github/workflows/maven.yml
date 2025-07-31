@@ -1,31 +1,41 @@
-    name: Java CI with Maven # Name of the workflow
+# 🏗️ Workflow name as it appears in GitHub Actions UI
+name: Java CI with Maven
 
-    on:
-      push:
-        branches: [ "main" ] # Triggers the workflow on push to the main branch
+# 📌 When to trigger the workflow
+on:
+  push:
+    branches: [ "main" ]  # Trigger only when code is pushed to the 'main' branch
+  pull_request:
+    branches: [ "main" ]  # Also trigger when a PR targets the 'main' branch
 
-    jobs:
-      build-and-test:
-        runs-on: ubuntu-latest # Specifies the runner environment (a fresh Ubuntu VM)
+jobs:
+  build-and-test:  # Job ID (used internally)
+    runs-on: ubuntu-latest  # 🖥️ Use a fresh Ubuntu runner hosted by GitHub
 
-        steps:
-        - uses: actions/checkout@v4 # Checks out your repository code
-          with:
-            fetch-depth: 0 # Fetches all history for all branches and tags.
+    steps:
+      # 🔍 Step 1: Checkout source code from the repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 📜 Fetch full history for accurate build versioning or changelogs
 
-        - name: Set up JDK 17 # Sets up the Java Development Kit
-          uses: actions/setup-java@v4
-          with:
-            java-version: '17' # Specify the Java version your project uses
-            distribution: 'temurin' # Recommended distribution for OpenJDK
+      # ☕ Step 2: Set up Java 17 using Eclipse Temurin distribution
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'       # 👈 Use Java 17
+          distribution: 'temurin'  # 👈 Recommended OpenJDK distribution
 
-        - name: Build and Test Auth Service # Runs the Maven build and tests for auth-service
-          # This command navigates into the auth-service directory and then runs Maven.
-          # If your 'auth-service' is a sub-module of a multi-module project,
-          # and you want to build and test only 'auth-service', this is correct.
-          # If you want to build the entire multi-module project and run all tests,
-          # you would use `mvn clean install` from the root directory.
-          run: |
-            cd auth-service # Navigate to the auth-service directory
-            mvn clean install # Clean build and run tests for auth-service
-    
+      # ⚡ Step 3: Cache local Maven dependencies (~/.m2 folder) to speed up builds
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2  # 🗃️ Maven stores downloaded dependencies here
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # 🧪 Step 4: Run Maven build and tests only for 'auth-service' module
+      - name: Build and Test Auth Service
+        working-directory: auth-service  # 👣 Navigate into the subfolder for this module
+        run: mvn clean install           # 🛠️ Build and test (unit tests must pass or job fails)

@@ -1,22 +1,20 @@
-    # Use a slim OpenJDK image as the base. OpenJDK 17 is specified in your parent POM.
-    FROM openjdk:17-jdk-slim
+# Use OpenJDK 17 base image
+FROM openjdk:17-jdk-alpine
 
-    # Set the working directory inside the container
-    WORKDIR /app
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-    # Copy the built JAR file from your Maven target directory into the container's /app directory.
-    # Ensure you've run 'mvn clean install' in your project root before building this Docker image.
-    COPY target/order-service-0.0.1-SNAPSHOT.jar app.jar
+# Set working directory
+WORKDIR /app
 
-    # Expose the port that the Spring Boot application will run on (order-service runs on 8084).
-    EXPOSE 8084
+# Copy the jar from target
+COPY target/*.jar app.jar
 
-    # Define the command to run your Spring Boot application when the container starts.
-    # We explicitly set server.port to 8084. The database URL will be picked from application.properties.
-    ENTRYPOINT ["java", "-jar", "app.jar", "--server.port=8084"]
+# Expose the port the service listens on (e.g., 8082 for product)
+EXPOSE 8084
 
-    # Optional: Add metadata for the Docker image
-    LABEL maintainer="Abdul Bari <bariabdul11ab@gmail.com>"
-    LABEL version="0.0.1"
-    LABEL description="Docker image for IntelliMart Order Service"
-    
+# Run the jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+
+# Optional: Add metadata labels for the Docker image.
+LABEL maintainer="Abdul Bari <bariabdul11ab@gmail.com>"
+LABEL version="0.0.1"
+LABEL description="Docker image for IntelliMart Auth Service"

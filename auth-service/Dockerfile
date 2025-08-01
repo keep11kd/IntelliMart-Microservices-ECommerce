@@ -1,29 +1,20 @@
-# Use a slim OpenJDK image as the base. OpenJDK 17 is specified in your parent POM.
-# This image is optimized for smaller size and security.
-FROM openjdk:17-jdk-slim
+# Use OpenJDK 17 base image
+FROM openjdk:17-jdk-alpine
 
-# Set the working directory inside the container
+# Set working directory
 WORKDIR /app
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-# Copy the built JAR file from your Maven target directory into the container's /app directory.
-# Assuming your JAR is named 'auth-service-0.0.1-SNAPSHOT.jar' after a successful Maven build.
-# Adjust the path if your JAR name or location is different.
-COPY target/auth-service-0.0.1-SNAPSHOT.jar app.jar
 
-# Expose the port that the Spring Boot application will run on.
-# Your auth-service typically runs on port 8080 by default, or as configured in application.properties.
+# Copy the jar from target
+COPY target/*.jar app.jar
+
+# Expose the port the service listens on (e.g., 8082 for product)
 EXPOSE 8089
 
-# Define the command to run your Spring Boot application when the container starts.
-# 'java -jar app.jar' starts the application.
-# '-Dspring.profiles.active=prod' can be added if you have a 'prod' profile.
-# '-Dspring.datasource.url=jdbc:mysql://host.docker.internal:3306/intellimart_auth_db'
-# This is crucial for connecting to MySQL running on your host machine from inside Docker.
-# Replace 'intellimart_auth_db' with your actual database name if different.
-# Ensure your application.properties has the correct username and password.
-ENTRYPOINT ["java", "-jar", "app.jar", "--spring.datasource.url=jdbc:mysql://host.docker.internal:3306/intellimart_auth_db"]
+# Run the jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
 
-# Optional: Add metadata for the Docker image
-LABEL maintainer="Your Name <your.email@example.com>"
+
+# Optional: Add metadata labels for the Docker image.
+LABEL maintainer="Abdul Bari <bariabdul11ab@gmail.com>"
 LABEL version="0.0.1"
 LABEL description="Docker image for IntelliMart Auth Service"

@@ -1,6 +1,10 @@
 # Use OpenJDK 17 base image
 FROM openjdk:17-jdk-alpine
 
+# Install curl for health checks and debugging using apk
+# The --no-cache option and rm -rf /var/cache/apk/* part helps keep the image size down
+RUN apk add --no-cache curl && rm -rf /var/cache/apk/*
+
 # Set working directory
 WORKDIR /app
 

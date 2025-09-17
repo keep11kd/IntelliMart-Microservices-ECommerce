@@ -1,49 +1,62 @@
-# 🏗️ Workflow name as it appears in the GitHub Actions UI
 name: Java CI with Maven
 
-# 📌 Define when this workflow should be triggered
 on:
   push:
-    branches: [ "main" ]  # Trigger on pushes to the 'main' branch
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]  # Also trigger on pull requests targeting the 'main' branch
+    branches: [ "main" ]
 
-# 🚀 Define the jobs that will run as part of this workflow
 jobs:
-  build-all-services:  # Updated job ID to reflect building all services
-    runs-on: ubuntu-latest  # 🖥️ Specifies the runner environment: a fresh Ubuntu Linux virtual machine hosted by GitHub
-
-    # 📋 Define the sequence of steps within this job
+  build-auth-service:
+    name: Build Auth Service (Day 46)
+    runs-on: ubuntu-latest
     steps:
-      # 🔍 Step 1: Checkout source code from your repository
       - name: Checkout repository
-        uses: actions/checkout@v4 # Uses the official GitHub action to checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 📜 Fetch full history; useful for some Maven plugins or Git operations
+          fetch-depth: 0
 
-      # ☕ Step 2: Set up the Java Development Kit (JDK)
       - name: Set up JDK 17
-        uses: actions/setup-java@v4 # Uses the official GitHub action to set up Java
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'      # 👈 Specify the Java version your project compiles with
-          distribution: 'temurin'  # 👈 Recommended OpenJDK distribution (Eclipse Temurin)
+          java-version: '17'
+          distribution: 'temurin'
 
-      # ⚡ Step 3: Cache local Maven dependencies (~/.m2 folder) to speed up builds
-      # This caches downloaded Maven dependencies, so subsequent runs are faster.
       - name: Cache Maven dependencies
-        uses: actions/cache@v4 # Uses the official GitHub action for caching
+        uses: actions/cache@v4
         with:
-          path: ~/.m2  # 🗃️ The directory where Maven stores downloaded dependencies
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }} # Generates a unique cache key based on OS and project's pom.xml files
-          restore-keys: | # Defines fallback keys if the primary key doesn't match exactly
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
             ${{ runner.os }}-maven-
 
-      # 📦 Step 4: Run Maven build for ALL microservices, skipping tests
-      # This assumes your root pom.xml is a multi-module project.
-      # Removing `working-directory` means Maven runs from the repository root.
-      - name: Build All Microservices (Skipping Tests) # 📝 Updated descriptive name for the step
-        # working-directory: auth-service  # ❌ REMOVE THIS LINE or comment it out!
-                                           # Running from the root builds all modules
-        run: mvn clean install -DskipTests # 🚀 Executes Maven: clean build and install for all modules, still skipping tests
-        # 💡 Important: Once all services' tests are fixed locally, you should remove -DskipTests
-        # to enable full test execution in CI.
+      - name: Build auth-service (skip tests for now)
+        working-directory: auth-service
+        run: mvn clean install -DskipTests
+
+  build-all-services:
+    name: Build All Services (Day 47)
+    needs: build-auth-service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build All Microservices (skip tests for now)
+        run: mvn clean install -DskipTests

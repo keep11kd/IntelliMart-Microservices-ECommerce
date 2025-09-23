@@ -7,8 +7,11 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # ------------------------------
+  # Day 46: Build Auth Service
+  # ------------------------------
   build-auth-service:
-    name: Build Auth Service (Day 46)
+    name: Build Auth Service (skip tests)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -30,12 +33,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build auth-service (skip tests for now)
+      - name: Build auth-service (skip tests)
         working-directory: auth-service
         run: mvn clean install -DskipTests
 
+  # ------------------------------
+  # Day 47: Build All Services (skip tests)
+  # ------------------------------
   build-all-services:
-    name: Build All Services (Day 47)
+    name: Build All Services (skip tests)
     needs: build-auth-service
     runs-on: ubuntu-latest
     steps:
@@ -58,5 +64,35 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build All Microservices (skip tests for now)
+      - name: Build All Microservices (skip tests)
         run: mvn clean install -DskipTests
+
+  # ------------------------------
+  # NEW: Full Build with Tests
+  # ------------------------------
+  build-and-test:
+    name: Build & Run All Tests
+    needs: build-all-services
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Full Build (with tests)
+        run: mvn clean install
